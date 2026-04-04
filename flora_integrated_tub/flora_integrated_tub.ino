@@ -14,7 +14,7 @@
 // Current co de does not compile in tinkerCad circuit simulator
 //
 // 4/4/2026 Version 0.4
-// changed sensor from DTH11 to DTH22
+// changed sensor suport from DTH11 to DTH22
 ///////////////////////////////////////////////////////////////////////////////
 
 
