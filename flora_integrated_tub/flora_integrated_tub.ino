@@ -13,41 +13,24 @@
 // Removed PH sensor from menue
 // Current co de does not compile in tinkerCad circuit simulator
 //
+// 4/4/2026 Version 0.4
+// changed sensor from DTH11 to DTH22
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef dht11_h
-#define dht11_h
 
-#if defined(ARDUINO) && (ARDUINO >= 100)
-#include <Arduino.h>
-#else
-#include <WProgram.h>
-#endif
 
-#define DHT11LIB_VERSION "0.4.1"
-
-#define DHTLIB_OK				0
-#define DHTLIB_ERROR_CHECKSUM	-1
-#define DHTLIB_ERROR_TIMEOUT	-2
-
-class dht11
-{
-public:
-    int read(int pin);
-	int humidity;
-	int temperature;
-};
-#endif
 
 
  // include the library code:
 #include <LiquidCrystal.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
+#include <DHT.h>
+#define DHTPIN 10
+#define DHTTYPE DHT22
+
+DHT dht(DHTPIN, DHTTYPE);
 
 
-dht11 DHT11;
-
-int dht11Pin          = 10;
 int jStickXPin        = A0;
 int jStickYPin        = A1;
 int pResistor         = A2; // Photoresistor at Arduino analog pin A2
@@ -92,7 +75,7 @@ const String menueArray[]= {
 // Temp Sensor        = 1
 // Moisture Sensor    = 2
 // Humidity Sensor    = 3
-int currValArray[]={0,0,0,0}; 
+float currValArray[]={0,0,0,0}; 
 
 
 
@@ -109,6 +92,9 @@ int currValArray[]={0,0,0,0};
 const int SENSOR_MAX_SETTING_ARRAY[]={2000,0,10,0,200,0,10,0};
 int limitThrsArray[]={1000,500,10,10,100,10,0,0}; // Sets Defualts
 
+float hum;  //Stores  humidity value
+float temp; //Stores temperature value
+
 // Function prototypes
 int displayStatus();
 int checkControls();
@@ -116,13 +102,17 @@ int scrollMenue();
 int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle);
 int printMenue(int currMenu, int nextMenu);
 
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Hardware Setup 
 ///////////////////////////////////////////////////////////////////////////////
-void setup() {
+void setup() {  
   pinMode(jStickXPin, INPUT);
   pinMode(jStickYPin, INPUT);
   pinMode(JStickButtonPin, INPUT_PULLUP);  
+  
+  dht.begin();  
   // set up the LCD's number of columns and rows:  
   lcd.begin(16, 2);
   //pinMode(switchPin, INPUT_PULLUP);
@@ -131,93 +121,29 @@ void setup() {
 
 }
 
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Main Loop
 /////////////////////////////////////////////////////////////////////////////// 
 void loop() {
 
-  int userInput=0;
+ int userInput=0;
 
-  //
-  // TODO NEED TO ADD SENSOR DATA COLLECITON
-  //
-  checkSensors();
-  // check for user input and print menue
-  userInput=displayStatus();
-  if(userInput==1){
-    scrollMenue();
-    lcd.clear();
-  }
+ //
+ // TODO NEED TO ADD SENSOR DATA COLLECITON
+ //
+ checkSensors();
+ // check for user input and print menue
+ userInput=displayStatus();
+ if(userInput==1){
+   scrollMenue();
+   lcd.clear();
+ }
 
 
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// dht11
-// Return values:
-// DHTLIB_OK
-// DHTLIB_ERROR_CHECKSUM
-// DHTLIB_ERROR_TIMEOUT
-/////////////////////////////////////////////////////////////////////////////// 
-int dht11::read(int pin)
-{
-	// BUFFER TO RECEIVE
-	uint8_t bits[5];
-	uint8_t cnt = 7;
-	uint8_t idx = 0;
-
-	// EMPTY BUFFER
-	for (int i=0; i< 5; i++) bits[i] = 0;
-
-	// REQUEST SAMPLE
-	pinMode(pin, OUTPUT);
-	digitalWrite(pin, LOW);
-	delay(18);
-	digitalWrite(pin, HIGH);
-	delayMicroseconds(40);
-	pinMode(pin, INPUT);
-
-	// ACKNOWLEDGE or TIMEOUT
-	unsigned int loopCnt = 10000;
-	while(digitalRead(pin) == LOW)
-		if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-	loopCnt = 10000;
-	while(digitalRead(pin) == HIGH)
-		if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-	// READ OUTPUT - 40 BITS => 5 BYTES or TIMEOUT
-	for (int i=0; i<40; i++)
-	{
-		loopCnt = 10000;
-		while(digitalRead(pin) == LOW)
-			if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-		unsigned long t = micros();
-
-		loopCnt = 10000;
-		while(digitalRead(pin) == HIGH)
-			if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-		if ((micros() - t) > 40) bits[idx] |= (1 << cnt);
-		if (cnt == 0)   // next byte?
-		{
-			cnt = 7;    // restart at MSB
-			idx++;      // next byte!
-		}
-		else cnt--;
-	}
-
-	// WRITE TO RIGHT VARS
-   // as bits[1] and bits[3] are allways zero they are omitted in formulas.
-	humidity    = bits[0]; 
-	temperature = bits[2]; 
-
-	uint8_t sum = bits[0] + bits[2];  
-
-	if (bits[4] != sum) return DHTLIB_ERROR_CHECKSUM;
-	return DHTLIB_OK;
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -229,20 +155,22 @@ int dht11::read(int pin)
 //               to the aruduino board. 
 ///////////////////////////////////////////////////////////////////////////////
 int checkSensors(){
+
+// Light Sensor       = 0
+// Temp Sensor        = 1
+// Moisture Sensor    = 2
+// Humidity Sensor    = 3
+  
   // Light sensor    
   currValArray[0] = analogRead(pResistor);
   // Temp Sensor
-  // Humidity Sensor
-  int chk = DHT11.read(dht11Pin);  // check the data coming from the DHT pin
-  currValArray[1] =DHT11.temperature;
-  currValArray[3] =DHT11.humidity;
-
-  
-  
+  currValArray[1] = dht.readTemperature();  
   // Moisture Sensor   
   int tmpRd = analogRead(moistureSensorPin);
   currValArray[2] = map(tmpRd, 0, 1023, 255, 0);
-
+  
+  // Humidity Sensor
+  currValArray[3] = dht.readHumidity();
 
 
     Serial.print("checkSensors: pResistor:  ");  
@@ -251,12 +179,7 @@ int checkSensors(){
     Serial.print("checkSensors: moistureSensorPin:  ");  
     Serial.print(currValArray[2]); 
     Serial.print("\n");
-    Serial.print("checkSensors: Temperature = ");  // print temperature on the serial monitor
-    Serial.println(DHT11.temperature);
-    Serial.print("\n");	
-    Serial.print("checkSensors: Humidity = ");// Print humidity on the serial monitor
-    Serial.println(DHT11.humidity);
-    Serial.print("\n");
+
 }  
 
 
