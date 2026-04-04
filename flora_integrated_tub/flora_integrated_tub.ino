@@ -1,16 +1,53 @@
 ///////////////////////////////////////////////////////////////////////////////
-// Title UI Menue
-// Revishion 2.2
+// Title: Flora Integrated Tub
+// Revishion: 0.3
 // 
-// 3/31/2026 Version 2.2
+// 3/31/2026 Version 0.2
 // Added moisture sensor
 // Fixed bug with menure interface not displatying correct menue
+//
+// 4/4/2026 Version 0.3
+// Added support for DTH11 temp / humidity sensor
+// Updated menu to include status for temp and humidity
+// Removed code for PH sensor
+// Removed PH sensor from menue
+// Current co de does not compile in tinkerCad circuit simulator
+//
 ///////////////////////////////////////////////////////////////////////////////
+#ifndef dht11_h
+#define dht11_h
+
+#if defined(ARDUINO) && (ARDUINO >= 100)
+#include <Arduino.h>
+#else
+#include <WProgram.h>
+#endif
+
+#define DHT11LIB_VERSION "0.4.1"
+
+#define DHTLIB_OK				0
+#define DHTLIB_ERROR_CHECKSUM	-1
+#define DHTLIB_ERROR_TIMEOUT	-2
+
+class dht11
+{
+public:
+    int read(int pin);
+	int humidity;
+	int temperature;
+};
+#endif
+
+
  // include the library code:
 #include <LiquidCrystal.h>
+#include <SoftwareSerial.h>
+#include <Wire.h>
 
 
+dht11 DHT11;
 
+int dht11Pin          = 10;
 int jStickXPin        = A0;
 int jStickYPin        = A1;
 int pResistor         = A2; // Photoresistor at Arduino analog pin A2
@@ -40,19 +77,22 @@ const int MIN_MENUE=0;
 const String menueArray[]= {
   "LIGHT MAX",     // 0
   "LIGHT MIN",     // 1
-  "PH MAX",        // 2
-  "PH MIN",        // 3
+  "TEMP MAX",      // 2
+  "TEMP MIN",      // 3
   "MOISTURE MAX",  // 4
-  "MOISTURE MIN"   // 5
+  "MOISTURE MIN",  // 5
+  "HUMIDITY MAX",  // 6
+  "HUMIDITY MIN"   // 7  
 };
 
 // These arrays will be used to store the current value, Max threshold, 
 // Min threshold for the Moisture, PH and Light sensor readings
 // The sensor index is 
 // Light Sensor       = 0
-// Ph Sensor          = 1
+// Temp Sensor        = 1
 // Moisture Sensor    = 2
-int currValArray[]={0,0,0}; 
+// Humidity Sensor    = 3
+int currValArray[]={0,0,0,0}; 
 
 
 
@@ -60,12 +100,14 @@ int currValArray[]={0,0,0};
 // The sensor index is 
 //  LIGHT MAX     // 0 Defualt 1200
 //  LIGHT MIN     // 1 Default 
-//  PH MAX        // 2
-//  PH MIN        // 3
+//  TEMP MAX      // 2
+//  TEMP MIN      // 3
 //  MOISTURE MAX  // 4
 //  MOISTURE MIN  // 5
-const int SENSOR_MAX_SETTING_ARRAY[]={2000,0,10,0,200,0};
-int limitThrsArray[]={1000,500,10,10,100,10}; // Sets Defualts
+//  HUMIDITY MAX  // 6
+//  HUMIDITY MIN  // 7
+const int SENSOR_MAX_SETTING_ARRAY[]={2000,0,10,0,200,0,10,0};
+int limitThrsArray[]={1000,500,10,10,100,10,0,0}; // Sets Defualts
 
 // Function prototypes
 int displayStatus();
@@ -81,10 +123,12 @@ void setup() {
   pinMode(jStickXPin, INPUT);
   pinMode(jStickYPin, INPUT);
   pinMode(JStickButtonPin, INPUT_PULLUP);  
- // set up the LCD's number of columns and rows:  
+  // set up the LCD's number of columns and rows:  
   lcd.begin(16, 2);
   //pinMode(switchPin, INPUT_PULLUP);
   Serial.begin(9600); // initialize the serial monitor
+ 
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -108,6 +152,72 @@ void loop() {
 
 }
 
+///////////////////////////////////////////////////////////////////////////////
+// dht11
+// Return values:
+// DHTLIB_OK
+// DHTLIB_ERROR_CHECKSUM
+// DHTLIB_ERROR_TIMEOUT
+/////////////////////////////////////////////////////////////////////////////// 
+int dht11::read(int pin)
+{
+	// BUFFER TO RECEIVE
+	uint8_t bits[5];
+	uint8_t cnt = 7;
+	uint8_t idx = 0;
+
+	// EMPTY BUFFER
+	for (int i=0; i< 5; i++) bits[i] = 0;
+
+	// REQUEST SAMPLE
+	pinMode(pin, OUTPUT);
+	digitalWrite(pin, LOW);
+	delay(18);
+	digitalWrite(pin, HIGH);
+	delayMicroseconds(40);
+	pinMode(pin, INPUT);
+
+	// ACKNOWLEDGE or TIMEOUT
+	unsigned int loopCnt = 10000;
+	while(digitalRead(pin) == LOW)
+		if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
+
+	loopCnt = 10000;
+	while(digitalRead(pin) == HIGH)
+		if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
+
+	// READ OUTPUT - 40 BITS => 5 BYTES or TIMEOUT
+	for (int i=0; i<40; i++)
+	{
+		loopCnt = 10000;
+		while(digitalRead(pin) == LOW)
+			if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
+
+		unsigned long t = micros();
+
+		loopCnt = 10000;
+		while(digitalRead(pin) == HIGH)
+			if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
+
+		if ((micros() - t) > 40) bits[idx] |= (1 << cnt);
+		if (cnt == 0)   // next byte?
+		{
+			cnt = 7;    // restart at MSB
+			idx++;      // next byte!
+		}
+		else cnt--;
+	}
+
+	// WRITE TO RIGHT VARS
+   // as bits[1] and bits[3] are allways zero they are omitted in formulas.
+	humidity    = bits[0]; 
+	temperature = bits[2]; 
+
+	uint8_t sum = bits[0] + bits[2];  
+
+	if (bits[4] != sum) return DHTLIB_ERROR_CHECKSUM;
+	return DHTLIB_OK;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -120,12 +230,20 @@ void loop() {
 ///////////////////////////////////////////////////////////////////////////////
 int checkSensors(){
   // Light sensor    
-    currValArray[0] = analogRead(pResistor);
-  // PH Sensor
-  // TODO Add moisture sensor 
+  currValArray[0] = analogRead(pResistor);
+  // Temp Sensor
+  // Humidity Sensor
+  int chk = DHT11.read(dht11Pin);  // check the data coming from the DHT pin
+  currValArray[1] =DHT11.temperature;
+  currValArray[3] =DHT11.humidity;
+
+  
+  
   // Moisture Sensor   
-    int tmpRd = analogRead(moistureSensorPin);
-    currValArray[2] = map(tmpRd, 0, 1023, 255, 0);
+  int tmpRd = analogRead(moistureSensorPin);
+  currValArray[2] = map(tmpRd, 0, 1023, 255, 0);
+
+
 
     Serial.print("checkSensors: pResistor:  ");  
     Serial.print(currValArray[0]); 
@@ -133,7 +251,12 @@ int checkSensors(){
     Serial.print("checkSensors: moistureSensorPin:  ");  
     Serial.print(currValArray[2]); 
     Serial.print("\n");
-
+    Serial.print("checkSensors: Temperature = ");  // print temperature on the serial monitor
+    Serial.println(DHT11.temperature);
+    Serial.print("\n");	
+    Serial.print("checkSensors: Humidity = ");// Print humidity on the serial monitor
+    Serial.println(DHT11.humidity);
+    Serial.print("\n");
 }  
 
 
@@ -184,21 +307,23 @@ int displayStatus(){
    String displayString=""; 
    String statusString="";    
    const String statStringArray[]= {
-    "Light Exp:",     // 0
-    "Soil Ph:",      // 1
-    "Soil Mstr:"  // 2
+    "Light Exp:",    // 0
+    "temperature:",  // 1
+    "Soil Mstr:",    // 2
+    "Humidity:"      // 3	
     };    
 
 //  LIGHT MAX     // 0
 //  LIGHT MIN     // 1
-//  PH MAX        // 2
-//  PH MIN        // 3
+//  Temp MAX      // 2
+//  Temp MIN      // 3
 //  MOISTURE MAX  // 4
 //  MOISTURE MIN  // 5
-
+//  HUMIDITY MAX  // 4
+//  HUMIDITY MIN  // 5
 
     while(userInput==0){  
-      for (int i=0; i<3; i++) {
+      for (int i=0; i<4; i++) {
         displayString=statStringArray[i]+currValArray[i];
         // Check MAX
         if(currValArray[i] > limitThrsArray[(i*2)] ) {
@@ -224,7 +349,7 @@ int displayStatus(){
         Serial.print(i);        
         Serial.print("\n");  
 
-        for(int j=0; j<150;j++){
+        for(int j=0; j<250;j++){
           userInput=checkControls();
           if(userInput==1){
             return 1;
