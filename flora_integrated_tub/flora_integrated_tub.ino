@@ -13,47 +13,108 @@
 // Removed PH sensor from menue
 // Current co de does not compile in tinkerCad circuit simulator
 //
+// 4/4/2026 Version 0.4
+// changed sensor suport from DTH11 to DTH22
+//
+// 4/11/2026 Version 0.5
+// Added support for LED alarm indicator
+// 
+// refactored code to use classes for the sensor status 
+// classes will be used to set the Max and Min threshold values
+// and what is displayed in LCD for each sensor. 
+//
+// 4/11/2026 Version 1.0
+//
+// Rewired the LCD and the joystick push button so that the joystick push button
+// could be used with the interrupt pin #2
+// Updated the source code to use the push button as a way to run a ISR that 
+// would change the display to show the configuration menu
+//
+// Went from this pinout
+// int JStickButtonPin   = 6;
+// const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+//
+// To this pinout 
+// int JStickButtonPin   = 2;
+// const int rs = 12, en = 11, d4 = 6, d5 = 5, d6 = 4, d7 = 3;
+//
 ///////////////////////////////////////////////////////////////////////////////
-#ifndef dht11_h
-#define dht11_h
 
-#if defined(ARDUINO) && (ARDUINO >= 100)
+
+#ifndef FIT_H
+#define FIT_H
+
 #include <Arduino.h>
-#else
-#include <WProgram.h>
-#endif
 
-#define DHT11LIB_VERSION "0.4.1"
 
-#define DHTLIB_OK				0
-#define DHTLIB_ERROR_CHECKSUM	-1
-#define DHTLIB_ERROR_TIMEOUT	-2
 
-class dht11
-{
+class sensorStatusClass {
 public:
-    int read(int pin);
-	int humidity;
-	int temperature;
+
+    String name;
+    String unitStauts;
+    String lowStatus;	
+    String highStatus;		
+    bool   isInt;
+    float  currValue;
+    float  maxThreshod;
+    float  minThreshod;	
+
+
+  public:
+    // Constructor: runs when the object is created
+    sensorStatusClass(
+         String name,
+        String unitStauts,
+        String lowStatus,	
+        String highStatus,	
+        bool   isInt,        	
+        float  currValue,
+        float  maxThreshod,
+        float  minThreshod	) {
+			
+			
+       name        = name;
+       unitStauts  = unitStauts;
+       lowStatus	 = lowStatus;
+       highStatus	 = highStatus;	
+       isInt       = isInt;
+       currValue   = currValue;
+       maxThreshod = maxThreshod;
+       minThreshod= minThreshod;
+    }
 };
+
+
+
+
 #endif
+
 
 
  // include the library code:
 #include <LiquidCrystal.h>
 #include <SoftwareSerial.h>
 #include <Wire.h>
+#include <DHT.h>
+
+#define DHTPIN 10
+#define DHTTYPE DHT22
+#define LIGHTSNSORIDX    0
+#define TEMPSNSORIDX     1
+#define MOISTURESNSORIDX 2
+#define HUMIDNSORIDX     3
+//#define DEBUG_MODE
+
+DHT dht(DHTPIN, DHTTYPE);
 
 
-dht11 DHT11;
-
-int dht11Pin          = 10;
 int jStickXPin        = A0;
 int jStickYPin        = A1;
 int pResistor         = A2; // Photoresistor at Arduino analog pin A2
 int moistureSensorPin = A3; // Moisture Sensor at Arduino analog pin A2
-
-int JStickButtonPin   = 6;
+int ledIndicatorPin   = 13;
+int JStickButtonPin   = 2;//6;
 
 int xVal;                 // variable for storing joystick x values
 int yVal;                 // variable for storing joystick y values
@@ -63,7 +124,8 @@ int buttonState;          // variable for storing joystick push button state
 
 // initialize the library by associating any needed LCD interface pin
 // with the arduino pin number it is connected to
-const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+//const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
+const int rs = 12, en = 11, d4 = 6, d5 = 5, d6 = 4, d7 = 3;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 const int WTCH_DOG_SCROLL_MENUE_MAX = 10;
@@ -92,7 +154,7 @@ const String menueArray[]= {
 // Temp Sensor        = 1
 // Moisture Sensor    = 2
 // Humidity Sensor    = 3
-int currValArray[]={0,0,0,0}; 
+float currValArray[]={0,0,0,0}; 
 
 
 
@@ -109,6 +171,67 @@ int currValArray[]={0,0,0,0};
 const int SENSOR_MAX_SETTING_ARRAY[]={2000,0,10,0,200,0,10,0};
 int limitThrsArray[]={1000,500,10,10,100,10,0,0}; // Sets Defualts
 
+float hum;  //Stores  humidity value
+float temp; //Stores temperature value
+
+
+// Intialize the custom classes for the sensors data
+sensorStatusClass humidSnsrData(
+humidSnsrData.name='Humidity',
+humidSnsrData.unitStauts="%",
+humidSnsrData.lowStatus="to low",
+humidSnsrData.highStatus="to high",	
+humidSnsrData.isInt=false,
+humidSnsrData.currValue=0.0,
+humidSnsrData.maxThreshod=10.0,
+humidSnsrData.minThreshod=20.0
+);
+
+
+sensorStatusClass tempSnsrData(
+tempSnsrData.name="Temp",
+tempSnsrData.unitStauts="C",
+tempSnsrData.lowStatus="to Low",
+tempSnsrData.highStatus="to high",
+tempSnsrData.isInt=false,
+tempSnsrData.currValue=0.0,
+tempSnsrData.maxThreshod=10.0,
+tempSnsrData.minThreshod=20.0
+);
+
+
+sensorStatusClass moistureSnsrData(
+moistureSnsrData.name="Moisture",
+moistureSnsrData.unitStauts="",
+moistureSnsrData.lowStatus="to Low",
+moistureSnsrData.highStatus="to high",
+moistureSnsrData.isInt=true,
+moistureSnsrData.currValue=0,
+moistureSnsrData.maxThreshod=100,
+moistureSnsrData.minThreshod=10
+);
+
+sensorStatusClass lightSnsrData(
+lightSnsrData.name="Light Intesity",
+lightSnsrData.unitStauts="",
+lightSnsrData.lowStatus="to Low",
+lightSnsrData.highStatus="to high",
+lightSnsrData.isInt=true,
+lightSnsrData.currValue=0,
+lightSnsrData.maxThreshod=1000,
+lightSnsrData.minThreshod=500
+);
+
+sensorStatusClass snsrStatusArr[]={lightSnsrData,tempSnsrData,moistureSnsrData,humidSnsrData};
+
+//snsrStatusArr[LIGHTSNSORIDX]    =lightSnsrData;
+//snsrStatusArr[TEMPSNSORIDX]     =tempSnsrData;
+//snsrStatusArr[MOISTURESNSORIDX] =moistureSnsrData;
+//snsrStatusArr[HUMIDNSORIDX]     =humidSnsrData;
+
+
+
+
 // Function prototypes
 int displayStatus();
 int checkControls();
@@ -116,108 +239,71 @@ int scrollMenue();
 int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle);
 int printMenue(int currMenu, int nextMenu);
 
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // Hardware Setup 
 ///////////////////////////////////////////////////////////////////////////////
-void setup() {
+void setup() {  
   pinMode(jStickXPin, INPUT);
   pinMode(jStickYPin, INPUT);
   pinMode(JStickButtonPin, INPUT_PULLUP);  
+  pinMode(ledIndicatorPin, OUTPUT);  
+  attachInterrupt(digitalPinToInterrupt(JStickButtonPin), scrollMenue, RISING);  
+  dht.begin();  
   // set up the LCD's number of columns and rows:  
   lcd.begin(16, 2);
   //pinMode(switchPin, INPUT_PULLUP);
   Serial.begin(9600); // initialize the serial monitor
+  digitalWrite(ledIndicatorPin,LOW);
  
+  snsrStatusArr[HUMIDNSORIDX].name="Humidity";
+  snsrStatusArr[HUMIDNSORIDX].unitStauts="%";
+  snsrStatusArr[HUMIDNSORIDX].lowStatus="to low";
+  snsrStatusArr[HUMIDNSORIDX].highStatus="to high";	
+  
+  snsrStatusArr[TEMPSNSORIDX] .name="Temp";
+  snsrStatusArr[TEMPSNSORIDX] .unitStauts="C";
+  snsrStatusArr[TEMPSNSORIDX] .lowStatus="to Low";
+  snsrStatusArr[TEMPSNSORIDX] .highStatus="to high";
+  
+  
+  
+  snsrStatusArr[MOISTURESNSORIDX].name="Moisture";
+  snsrStatusArr[MOISTURESNSORIDX].unitStauts="";
+  snsrStatusArr[MOISTURESNSORIDX].lowStatus="to Low";
+  snsrStatusArr[MOISTURESNSORIDX].highStatus="to high";
+  
+  snsrStatusArr[LIGHTSNSORIDX] .name="Light";
+  snsrStatusArr[LIGHTSNSORIDX] .unitStauts="";
+  snsrStatusArr[LIGHTSNSORIDX] .lowStatus="to Low";
+  snsrStatusArr[LIGHTSNSORIDX] .highStatus="to high"; 
 
 }
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Main Loop
 /////////////////////////////////////////////////////////////////////////////// 
 void loop() {
 
-  int userInput=0;
+ int userInput=0;
 
-  //
-  // TODO NEED TO ADD SENSOR DATA COLLECITON
-  //
-  checkSensors();
-  // check for user input and print menue
-  userInput=displayStatus();
-  if(userInput==1){
-    scrollMenue();
-    lcd.clear();
-  }
+ //
+ // TODO NEED TO ADD SENSOR DATA COLLECITON
+ //
+ checkSensors();
+ // check for user input and print menue
+ userInput=displayStatus();
+ if(userInput==2){
+   scrollMenue();
+   lcd.clear();
+ }
 
 
 }
 
-///////////////////////////////////////////////////////////////////////////////
-// dht11
-// Return values:
-// DHTLIB_OK
-// DHTLIB_ERROR_CHECKSUM
-// DHTLIB_ERROR_TIMEOUT
-/////////////////////////////////////////////////////////////////////////////// 
-int dht11::read(int pin)
-{
-	// BUFFER TO RECEIVE
-	uint8_t bits[5];
-	uint8_t cnt = 7;
-	uint8_t idx = 0;
-
-	// EMPTY BUFFER
-	for (int i=0; i< 5; i++) bits[i] = 0;
-
-	// REQUEST SAMPLE
-	pinMode(pin, OUTPUT);
-	digitalWrite(pin, LOW);
-	delay(18);
-	digitalWrite(pin, HIGH);
-	delayMicroseconds(40);
-	pinMode(pin, INPUT);
-
-	// ACKNOWLEDGE or TIMEOUT
-	unsigned int loopCnt = 10000;
-	while(digitalRead(pin) == LOW)
-		if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-	loopCnt = 10000;
-	while(digitalRead(pin) == HIGH)
-		if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-	// READ OUTPUT - 40 BITS => 5 BYTES or TIMEOUT
-	for (int i=0; i<40; i++)
-	{
-		loopCnt = 10000;
-		while(digitalRead(pin) == LOW)
-			if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-		unsigned long t = micros();
-
-		loopCnt = 10000;
-		while(digitalRead(pin) == HIGH)
-			if (loopCnt-- == 0) return DHTLIB_ERROR_TIMEOUT;
-
-		if ((micros() - t) > 40) bits[idx] |= (1 << cnt);
-		if (cnt == 0)   // next byte?
-		{
-			cnt = 7;    // restart at MSB
-			idx++;      // next byte!
-		}
-		else cnt--;
-	}
-
-	// WRITE TO RIGHT VARS
-   // as bits[1] and bits[3] are allways zero they are omitted in formulas.
-	humidity    = bits[0]; 
-	temperature = bits[2]; 
-
-	uint8_t sum = bits[0] + bits[2];  
-
-	if (bits[4] != sum) return DHTLIB_ERROR_CHECKSUM;
-	return DHTLIB_OK;
-}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -229,34 +315,37 @@ int dht11::read(int pin)
 //               to the aruduino board. 
 ///////////////////////////////////////////////////////////////////////////////
 int checkSensors(){
-  // Light sensor    
-  currValArray[0] = analogRead(pResistor);
-  // Temp Sensor
-  // Humidity Sensor
-  int chk = DHT11.read(dht11Pin);  // check the data coming from the DHT pin
-  currValArray[1] =DHT11.temperature;
-  currValArray[3] =DHT11.humidity;
 
-  
-  
+
+//snsrStatusArr[LIGHTSNSORIDX]    =lightSnsrData;
+//snsrStatusArr[TEMPSNSORIDX]     =tempSnsrData;
+//snsrStatusArr[MOISTURESNSORIDX] =moistureSnsrData;
+//snsrStatusArr[HUMIDNSORIDX]     =humidSnsrData;
+
+  // Light sensor    
+  snsrStatusArr[LIGHTSNSORIDX].currValue = analogRead(pResistor);
+  // Temp Sensor
+  snsrStatusArr[TEMPSNSORIDX].currValue = dht.readTemperature();  
   // Moisture Sensor   
   int tmpRd = analogRead(moistureSensorPin);
-  currValArray[2] = map(tmpRd, 0, 1023, 255, 0);
+  snsrStatusArr[MOISTURESNSORIDX].currValue = map(tmpRd, 0, 1023, 255, 0);
+  
+  // Humidity Sensor
+  snsrStatusArr[HUMIDNSORIDX].currValue = dht.readHumidity();
 
+#ifdef DEBUG_MODE
+#endif
 
-
+#ifdef DEBUG_MODE
     Serial.print("checkSensors: pResistor:  ");  
     Serial.print(currValArray[0]); 
     Serial.print("\n");
     Serial.print("checkSensors: moistureSensorPin:  ");  
     Serial.print(currValArray[2]); 
     Serial.print("\n");
-    Serial.print("checkSensors: Temperature = ");  // print temperature on the serial monitor
-    Serial.println(DHT11.temperature);
-    Serial.print("\n");	
-    Serial.print("checkSensors: Humidity = ");// Print humidity on the serial monitor
-    Serial.println(DHT11.humidity);
-    Serial.print("\n");
+#endif
+
+
 }  
 
 
@@ -276,7 +365,11 @@ int checkControls(){
   delay(10);
   xVal2 = analogRead(jStickXPin);
   yVal2 = analogRead(jStickYPin);
+
+
+
   if((abs(xVal - xVal2) > 100) || (abs(yVal - yVal2) > 100)){
+    #ifdef DEBUG_MODE
     Serial.print("checkControls: xvals | ");  
     Serial.print(xVal);
     Serial.print(" | ");    
@@ -288,6 +381,7 @@ int checkControls(){
     Serial.print(" | ");    
     Serial.print(yVal2);  
     Serial.print("\n");
+    #endif    
     return 1;
   }
     return 0;  
@@ -303,15 +397,10 @@ int checkControls(){
 ///////////////////////////////////////////////////////////////////////////////
 int displayStatus(){
 
-    int userInput=0;
+    int userInput=1;
    String displayString=""; 
    String statusString="";    
-   const String statStringArray[]= {
-    "Light Exp:",    // 0
-    "temperature:",  // 1
-    "Soil Mstr:",    // 2
-    "Humidity:"      // 3	
-    };    
+
 
 //  LIGHT MAX     // 0
 //  LIGHT MIN     // 1
@@ -322,17 +411,37 @@ int displayStatus(){
 //  HUMIDITY MAX  // 4
 //  HUMIDITY MIN  // 5
 
-    while(userInput==0){  
+    String name;
+    String unitStauts;
+    String lowStatus;	
+    String highStatus;		
+    bool   isInt;
+    float  currValue;
+    float  maxThreshod;
+    float  minThreshod;	
+
+
+
+    while(userInput==1){  
       for (int i=0; i<4; i++) {
-        displayString=statStringArray[i]+currValArray[i];
+	   	if(snsrStatusArr[i].isInt){
+          displayString=snsrStatusArr[i].name+":"+int(snsrStatusArr[i].currValue);
+        } else{
+          displayString=snsrStatusArr[i].name+":"+snsrStatusArr[i].currValue;
+        }
+		
+        displayString=displayString+" "+snsrStatusArr[i].unitStauts;
         // Check MAX
         if(currValArray[i] > limitThrsArray[(i*2)] ) {
           statusString="STATUS: ALARM HI";
+          digitalWrite(ledIndicatorPin,HIGH);          	  
         // CHECK MIN  
         } else if(currValArray[i] < limitThrsArray[(i*2)+1] ) {
           statusString="STATUS: ALARM LO";          
+          digitalWrite(ledIndicatorPin,HIGH);
         } else {
           statusString="STATUS: GOOD";
+          digitalWrite(ledIndicatorPin,LOW);          
         }
         lcd.setCursor(0, 0);
         lcd.print("                ");   // This is done to 0 out the 2nd row
@@ -343,16 +452,16 @@ int displayStatus(){
         lcd.setCursor(0, 1);     
         lcd.print(displayString);          
 
-        Serial.print("displayStatus: displayString= ");  
-        Serial.print(displayString);
-        Serial.print("--"); 
-        Serial.print(i);        
-        Serial.print("\n");  
+
 
         for(int j=0; j<250;j++){
-          userInput=checkControls();
-          if(userInput==1){
-            return 1;
+          delay(20);
+          userInput=digitalRead(JStickButtonPin);
+          Serial.print(userInput);          
+          Serial.print("\n");          
+          if(userInput==0){
+            return 2;
+            userInput=0;
           }    
         }
 
@@ -372,68 +481,81 @@ int displayStatus(){
 //               
 ///////////////////////////////////////////////////////////////////////////////
 int scrollMenue(){
-  //  
+  // reset the watch dog timer to 0 when we enter the scroll menue
+  // when the watch dog reaches the max we will go back to the status 
+  // display function. 
   int wtchDogMenueScroll = 0;
+  
+  //Detach the inteerupt from the joystick pin while we are in the menue 
+  detachInterrupt(digitalPinToInterrupt(JStickButtonPin));    
+  
   int currMenu=0; 
   int prevMenu=0; 
   int nextMenu=0;  
   while (wtchDogMenueScroll <= WTCH_DOG_SCROLL_MENUE_MAX){
 
-  // read the x, y and joystick switch values
-  xVal = analogRead(jStickXPin);
-  yVal = analogRead(jStickYPin);    
-  buttonState = digitalRead(JStickButtonPin);
-  bool menueChange = false; 
-  bool enterSubMenue = false;   
-  if(buttonState==0){
-    Serial.println("scrollMenue: JOY STICK PRESSED BUTTON\n");      
-    enterSubMenue=true;
+    // read the x, y and joystick switch values
+    xVal = analogRead(jStickXPin);
+    yVal = analogRead(jStickYPin);    
+    buttonState = digitalRead(JStickButtonPin);
+    bool menueChange = false; 
+    bool enterSubMenue = false;   
+    if(buttonState==0){
+      Serial.println("scrollMenue: JOY STICK PRESSED BUTTON\n");      
+      enterSubMenue=true;
+    
+    }else if(xVal < 400 ) { // LEFT
+      Serial.println("scrollMenue: JOY STICK LEFT\n");  
+    } else if(xVal > 800) { // RIGHT
+      Serial.println("scrollMenue: JOY STICK RIGHT\n");  
+    } else if(yVal > 800) { // UP
+      Serial.println("scrollMenue: JOY STICK UP\n");  
+      nextMenu=1;
+      menueChange=true;   
+    } else if(yVal < 100) { // DOWN
+      Serial.println("scrollMenue: JOY STICK DOWN\n");  
+      nextMenu=2; 
+      menueChange=true;       
+    }
+    
+    // If we scroll through the menue 
+    if(enterSubMenue == true){    
+      #ifdef DEBUG_MODE
+      Serial.print("scrollMenue: enterSubMenue prevMenu= ");  
+      Serial.print(prevMenu);
+      Serial.print("\n");
+      #endif          
+    
+      //int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
+      limitThrsArray[prevMenu]=printSubConfigMenue(
+                               limitThrsArray[prevMenu],
+                               SENSOR_MAX_SETTING_ARRAY[prevMenu],
+                               0,
+                               menueArray[prevMenu]
+                              );    
+							  
+      // Go to the sub menue to configure the thresholds. 
+	  printMenue(prevMenu,0);    
+    } else if(menueChange == true){
+      prevMenu=currMenu;
+      currMenu=printMenue(currMenu,nextMenu);
+      #ifdef DEBUG_MODE 
+      Serial.print("scrollMenue: menueChange return currMenu= ");  
+      Serial.print(currMenu);
+      Serial.print("\n");  
+      #endif                
+    }
+    delay(250);
+    if(menueChange || enterSubMenue){
+      wtchDogMenueScroll=0;
+    }else{
+      wtchDogMenueScroll++;
+    }
 
-  }else if(xVal < 400 ) { // LEFT
-    Serial.println("scrollMenue: JOY STICK LEFT\n");  
-  } else if(xVal > 800) { // RIGHT
-    Serial.println("scrollMenue: JOY STICK RIGHT\n");  
-  } else if(yVal > 800) { // UP
-    Serial.println("scrollMenue: JOY STICK UP\n");  
-    nextMenu=1;
-    menueChange=true;   
-  } else if(yVal < 100) { // DOWN
-    Serial.println("scrollMenue: JOY STICK DOWN\n");  
-    nextMenu=2; 
-    menueChange=true;       
   }
-
-  // If we scroll through the menue 
-  if(enterSubMenue == true){
-    Serial.print("scrollMenue: enterSubMenue prevMenu= ");  
-    Serial.print(prevMenu);
-    Serial.print("\n");
-
-
-    //int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
-    limitThrsArray[prevMenu]=printSubConfigMenue(
-                             limitThrsArray[prevMenu],
-                             SENSOR_MAX_SETTING_ARRAY[prevMenu],
-                             0,
-                             menueArray[prevMenu]
-                            );    
-    printMenue(prevMenu,0);    
-  } else if(menueChange == true){
-    prevMenu=currMenu;
-    currMenu=printMenue(currMenu,nextMenu);
-    Serial.print("scrollMenue: menueChange return currMenu= ");  
-    Serial.print(currMenu);
-    Serial.print("\n");     
-  }
-  delay(250);
-  if(menueChange || enterSubMenue){
-    wtchDogMenueScroll=0;
-  }else{
-    wtchDogMenueScroll++;
-  }
-
-  }
-
+  // when we leave this function and go back to the status
+  // display function we will reatach the interrutp
+  attachInterrupt(digitalPinToInterrupt(JStickButtonPin), scrollMenue, RISING);  
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -452,6 +574,7 @@ int scrollMenue(){
 int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
     int localWatchDog=0;
     int localButtonState=1;
+    #ifdef DEBUG_MODE     
     Serial.print("printSubConfigMenue: menueTitle ");  
     Serial.print(menueTitle);
     Serial.print("\n"); 
@@ -464,13 +587,14 @@ int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
     Serial.print("printSubConfigMenue: minVal ");  
     Serial.print(maxVal);
     Serial.print("\n");     
+    #endif;
     lcd.clear();      
     lcd.begin(16, 2);
     lcd.setCursor(0, 0);
     lcd.print(menueTitle);
     lcd.setCursor(0, 1);
     lcd.print(setVal);      
-    delay(50);    
+    delay(200);    
     while(localButtonState==1){
        localButtonState = digitalRead(JStickButtonPin);
 
@@ -479,17 +603,21 @@ int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
         if(yVal > 800) { // UP
           localWatchDog=0;
           if(setVal<maxVal){
+            #ifdef DEBUG_MODE
             Serial.print("printSubConfigMenue: setVal ");  
             Serial.print(setVal);
             Serial.print("\n"); 
+            #endif;
             setVal=setVal+5;        
           }
         } else if(yVal < 100) { // DOWN
           localWatchDog=0;        
           if(setVal>minVal){
+            #ifdef DEBUG_MODE
             Serial.print("printSubConfigMenue: setVal ");  
             Serial.print(setVal);
             Serial.print("\n"); 
+            #endif;
             setVal=setVal-5;      
           }
         }
@@ -503,9 +631,11 @@ int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
         lcd.setCursor(0, 1);      
         lcd.print(setVal);      
         delay(150);
+        #ifdef DEBUG_MODE        
         Serial.print("printSubConfigMenue: localWatchDog ");  
         Serial.print(localWatchDog);
         Serial.print("\n");             
+        #endif;
         localWatchDog++;
         if(localWatchDog > WTCH_DOG_CNFG_MENUE_MAX){
          break;
@@ -537,9 +667,11 @@ if(arryNextIndex==(MAX_MENUE+1)){
   arryNextIndex=0; 
 }
     lcd.clear();
+    #ifdef DEBUG_MODE        
     Serial.print("printMenue: localCurrMenu ");  
     Serial.print(localCurrMenu);
-    Serial.print("\n");        
+    Serial.print("\n");      
+    #endif;  
     lcd.begin(16, 2);
     lcd.setCursor(0, 0);
     lcd.print("                ");   // This is done to 0 out the row       
