@@ -34,6 +34,11 @@
 // Known Defects : current the menu cannot scroll up. Scrolling down works and 
 // wraps around but the user cannot scroll up. 
 //
+// 4/11/2026 Version 1.0
+// 
+// Fixed bug where menu would not scroll up if at the first menu option
+// the wraping from the ealiest menu to the end of the menu was not working
+// release as verion 1.0 the joystick and menu is wokring
 //
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,8 +140,8 @@ const int WTCH_DOG_CNFG_MENUE_MAX = 10;
 
 volatile bool enterMenu=false;
 
-const int MAX_MENUE=6;
-const int MIN_MENUE=0;
+const int MAX_MENU=6;
+const int MIN_MENU=0;
 
 const String menueArray[]= {
   "LIGHT MAX",     // 0
@@ -240,7 +245,7 @@ sensorStatusClass snsrStatusArr[]={lightSnsrData,tempSnsrData,moistureSnsrData,h
 // Function prototypes
 int displayStatus();
 int checkControls();
-int scrollMenue();
+int scrollMenu();
 int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle);
 int printMenue(int currMenu, int nextMenu);
 
@@ -419,9 +424,10 @@ int displayStatus(){
          }	
 	 	 
          if(prvBTN!=currBTN){
-		  scrollMenue();
+          Serial.print("displayStatus: Button Pressed! "); 
+		      scrollMenu();
           break;			
-		 }
+		     }
          prvBTN=currBTN;
     
 
@@ -432,14 +438,14 @@ int displayStatus(){
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// Function Name : scrollMenue
+// Function Name : scrollMenu
 // Inputs        : None
 // Returns       : Nothing
 //
 // Description : 
 //               
 ///////////////////////////////////////////////////////////////////////////////
-int scrollMenue(){
+int scrollMenu(){
   // reset the watch dog timer to 0 when we enter the scroll menue
   // when the watch dog reaches the max we will go back to the status 
   // display function. 
@@ -469,7 +475,7 @@ int scrollMenue(){
   currBTN=digitalRead(JStickButtonPin);
   prvBTN=1;
   while((prvBTN!=currBTN) && (currBTN !=1)){  
-    Serial.print("scrollMenue: DBOUNCE \n");    
+    Serial.print("scrollMenu: DBOUNCE \n");    
     currBTN=digitalRead(JStickButtonPin);  
   }
   while(watchDogExp==false){  
@@ -491,7 +497,7 @@ int scrollMenue(){
     xVal = analogRead(jStickXPin);
     yVal = analogRead(jStickYPin);    
     /* 
-    Serial.print("scrollMenue: xVal ");  
+    Serial.print("scrollMenu: xVal ");  
     Serial.print(xVal);  
     Serial.print(" | yVal ");  	
     Serial.print(yVal);  	
@@ -531,7 +537,7 @@ int scrollMenue(){
       Serial.print("DOWN\n"); 
 	  previousMillisCheckDir=millis();
     }else if(prvBTN!=currBTN){   
-      Serial.print("CNFG\n"); 	
+      Serial.print("scrollMenu: Button Pressed! "); 
       //int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
       limitThrsArray[prevMenu]=printSubConfigMenue(
                                limitThrsArray[prevMenu],
@@ -558,7 +564,7 @@ int scrollMenue(){
   }
   // when we leave this function and go back to the status
   // display function we will reatach the interrutp
-  //attachInterrupt(digitalPinToInterrupt(JStickButtonPin), scrollMenue, FALLING);  
+  //attachInterrupt(digitalPinToInterrupt(JStickButtonPin), scrollMenu, FALLING);  
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -666,14 +672,19 @@ int localCurrMenu=currMenu;
 int arryNextIndex=localCurrMenu+1;
 
 
-if(arryNextIndex==(MAX_MENUE+1)){
+if(arryNextIndex==(MAX_MENU+1)){
   arryNextIndex=0; 
 }
-    Serial.print("printMenue: localCurrMenu ");  
+    Serial.print("printMenue: currMenu ");  
+    Serial.print(currMenu);  
+    Serial.print(" | nextMenu ");  	
+    Serial.print(nextMenu);  
+    Serial.print(" | localCurrMenu ");  	
     Serial.print(localCurrMenu);  
     Serial.print(" | arryNextIndex ");  	
-    Serial.print(arryNextIndex);  
+    Serial.print(arryNextIndex);  	
     Serial.print("\n");
+	
     lcd.clear();
     lcd.begin(16, 2);
     lcd.setCursor(0, 0);
@@ -689,12 +700,12 @@ if(arryNextIndex==(MAX_MENUE+1)){
 
     // Check if the menue scrolls up or down 
     // 1 = UP, 2 = DOWN
-    if(nextMenu == 0 ) { // Menue scroll up
+    if(nextMenu == 1 ) { // Menue scroll up
       // If we are on the first menue option and we scroll up
       // We will need to wrap back the last menue 
       // other wise we will go up one to the previous menue option 
-      if(localCurrMenu ==  MIN_MENUE){
-        localCurrMenu=MAX_MENUE;
+      if(localCurrMenu ==  MIN_MENU){
+        localCurrMenu=MAX_MENU;
       } else {
         localCurrMenu=localCurrMenu-1;
       }   
@@ -702,7 +713,7 @@ if(arryNextIndex==(MAX_MENUE+1)){
       // If we are on the last menue option and we scroll down
       // We will need to wrap back the first menue 
       // other wise we will go up one to the next menue option 
-      if(localCurrMenu ==  MAX_MENUE){
+      if(localCurrMenu ==  MAX_MENU){
         localCurrMenu=0;
       } else {
         localCurrMenu=localCurrMenu+1;
