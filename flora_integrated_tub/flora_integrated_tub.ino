@@ -40,6 +40,17 @@
 // the wraping from the ealiest menu to the end of the menu was not working
 // release as verion 1.0 the joystick and menu is wokring
 //
+// 4/11/2026 Version 1.1
+// Updated menu to dipslay 2 sensor status on the LCD at one time 
+// using each of the 2 rows
+//
+// updated to run the LED indicator on when any of the current 5 sensors
+// are outside of their operating ranges. 
+//
+// added RTN STATUS to the scroll menu. This will allow the user to return 
+// to the status screen of the UI without the need to wait for the timout
+// to return to the status the user will set the scroll menu to RTN STATUS
+// then press the joystick button
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -71,20 +82,20 @@ public:
         String unitStauts,
         String lowStatus,	
         String highStatus,	
-        bool   isInt,        	
+        bool   isInt,   
         float  currValue,
         float  maxThreshod,
         float  minThreshod	) {
 			
 			
-       name        = name;
-       unitStauts  = unitStauts;
+       name          = name;
+       unitStauts    = unitStauts;
        lowStatus	 = lowStatus;
        highStatus	 = highStatus;	
-       isInt       = isInt;
-       currValue   = currValue;
-       maxThreshod = maxThreshod;
-       minThreshod= minThreshod;
+       isInt         = isInt;
+       currValue     = currValue;
+       maxThreshod   = maxThreshod;
+       minThreshod   = minThreshod;
     }
 };
 
@@ -113,7 +124,7 @@ DHT dht(DHTPIN, DHTTYPE);
 const int JSTICK_UP =700;
 const int JSTICK_DOWN =300;
 #define DIRECTION_INTERVAL   250 
-#define STATUS_INTERVAL      3000
+#define STATUS_INTERVAL      2000
 #define WTCH_DOG_SCROLL_MENU 9000
 
 
@@ -140,18 +151,19 @@ const int WTCH_DOG_CNFG_MENUE_MAX = 10;
 
 volatile bool enterMenu=false;
 
-const int MAX_MENU=6;
+const int MAX_MENU=8;
 const int MIN_MENU=0;
 
 const String menueArray[]= {
-  "LIGHT MAX",     // 0
-  "LIGHT MIN",     // 1
-  "TEMP MAX",      // 2
-  "TEMP MIN",      // 3
-  "MOISTURE MAX",  // 4
-  "MOISTURE MIN",  // 5
-  "HUMIDITY MAX",  // 6
-  "HUMIDITY MIN"   // 7  
+  "TEMP MAX",     // 0
+  "TEMP MIN",     // 1
+  "HUMIDITY MAX", // 2
+  "HUMIDITY MIN", // 3    
+  "MOISTURE MAX", // 4
+  "MOISTURE MIN", // 5
+  "LIGHT MAX",    // 6
+  "LIGHT MIN",    // 7
+  "RTN STATUS"    // 8
 };
 
 // These arrays will be used to store the current value, Max threshold, 
@@ -267,27 +279,27 @@ void setup() {
   Serial.begin(9600); // initialize the serial monitor
   digitalWrite(ledIndicatorPin,LOW);
  
-  snsrStatusArr[HUMIDNSORIDX].name="Humidity";
+  snsrStatusArr[HUMIDNSORIDX].name="Humid";
   snsrStatusArr[HUMIDNSORIDX].unitStauts="%";
   snsrStatusArr[HUMIDNSORIDX].lowStatus="to low";
   snsrStatusArr[HUMIDNSORIDX].highStatus="to high";	
   
-  snsrStatusArr[TEMPSNSORIDX] .name="Temp";
-  snsrStatusArr[TEMPSNSORIDX] .unitStauts="C";
-  snsrStatusArr[TEMPSNSORIDX] .lowStatus="to Low";
-  snsrStatusArr[TEMPSNSORIDX] .highStatus="to high";
+  snsrStatusArr[TEMPSNSORIDX].name="Temp";
+  snsrStatusArr[TEMPSNSORIDX].unitStauts="C";
+  snsrStatusArr[TEMPSNSORIDX].lowStatus="to Low";
+  snsrStatusArr[TEMPSNSORIDX].highStatus="to high";
   
   
   
-  snsrStatusArr[MOISTURESNSORIDX].name="Moisture";
+  snsrStatusArr[MOISTURESNSORIDX].name="Mosit";
   snsrStatusArr[MOISTURESNSORIDX].unitStauts="";
   snsrStatusArr[MOISTURESNSORIDX].lowStatus="to Low";
   snsrStatusArr[MOISTURESNSORIDX].highStatus="to high";
   
-  snsrStatusArr[LIGHTSNSORIDX] .name="Light";
-  snsrStatusArr[LIGHTSNSORIDX] .unitStauts="";
-  snsrStatusArr[LIGHTSNSORIDX] .lowStatus="to Low";
-  snsrStatusArr[LIGHTSNSORIDX] .highStatus="to high"; 
+  snsrStatusArr[LIGHTSNSORIDX].name="Light";
+  snsrStatusArr[LIGHTSNSORIDX].unitStauts="";
+  snsrStatusArr[LIGHTSNSORIDX].lowStatus="to Low";
+  snsrStatusArr[LIGHTSNSORIDX].highStatus="to high"; 
 
 }
 
@@ -321,20 +333,14 @@ void loop() {
 //               to the aruduino board. 
 ///////////////////////////////////////////////////////////////////////////////
 int checkSensors(){
-
-
-//snsrStatusArr[LIGHTSNSORIDX]    =lightSnsrData;
-//snsrStatusArr[TEMPSNSORIDX]     =tempSnsrData;
-//snsrStatusArr[MOISTURESNSORIDX] =moistureSnsrData;
-//snsrStatusArr[HUMIDNSORIDX]     =humidSnsrData;
-
   // Light sensor    
   snsrStatusArr[LIGHTSNSORIDX].currValue = analogRead(pResistor);
   // Temp Sensor
   snsrStatusArr[TEMPSNSORIDX].currValue = dht.readTemperature();  
   // Moisture Sensor   
-  int tmpRd = analogRead(moistureSensorPin);
-  snsrStatusArr[MOISTURESNSORIDX].currValue = map(tmpRd, 0, 1023, 255, 0);
+  //int tmpRd = analogRead(moistureSensorPin);
+  //snsrStatusArr[MOISTURESNSORIDX].currValue = map(tmpRd, 0, 1023, 255, 0);
+  snsrStatusArr[MOISTURESNSORIDX].currValue = analogRead(moistureSensorPin);
   
   // Humidity Sensor
   snsrStatusArr[HUMIDNSORIDX].currValue = dht.readHumidity();
@@ -356,18 +362,11 @@ int checkSensors(){
 int displayStatus(){
 
 
-   String displayString=""; 
-   String statusString="";    
+
+   String statusStringA="";    
+   String statusStringB="";       
 
 
-//  LIGHT MAX     // 0
-//  LIGHT MIN     // 1
-//  Temp MAX      // 2
-//  Temp MIN      // 3
-//  MOISTURE MAX  // 4
-//  MOISTURE MIN  // 5
-//  HUMIDITY MAX  // 4
-//  HUMIDITY MIN  // 5
 
     String name;
     String unitStauts;
@@ -375,43 +374,89 @@ int displayStatus(){
     String highStatus;		
     bool   isInt;
     bool   changeStatus=false;	
+	bool   alrmStatus=false;
     float  currValue;
     float  maxThreshod;
     float  minThreshod;	
     int currBTN = 0;
     int prvBTN = 0;
 
+    // Loop through the sensor values
+	  // set alarm status if the sensor reading is
+	  // outside of the threshold
+        for (int i=0; i<4; i++) {       
+          if(
+		     (snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshod) || 
+		     (snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshod)
+			 ) {
+             alrmStatus = true;
+          }
+        }
 
-      for (int i=0; i<4; i++) {
+
+
+
+
+
+         
+	    if(alrmStatus){
+           digitalWrite(ledIndicatorPin,HIGH);      
+	    } else {
+           digitalWrite(ledIndicatorPin,LOW);      		 
+        }
+ 
+      for (int i=0; i<4; i=i+2) {
 	   	if(snsrStatusArr[i].isInt){
-          displayString=snsrStatusArr[i].name+":"+int(snsrStatusArr[i].currValue);
-        } else{
-          displayString=snsrStatusArr[i].name+":"+snsrStatusArr[i].currValue;
-        }
-		
-        displayString=displayString+" "+snsrStatusArr[i].unitStauts;
-        // Check MAX
-        if(currValArray[i] > limitThrsArray[(i*2)] ) {
-          statusString="STATUS: ALARM HI";
-          digitalWrite(ledIndicatorPin,HIGH);          	  
-        // CHECK MIN  
-        } else if(currValArray[i] < limitThrsArray[(i*2)+1] ) {
-          statusString="STATUS: ALARM LO";          
-          digitalWrite(ledIndicatorPin,HIGH);
+          statusStringA=snsrStatusArr[i].name+":"+int(snsrStatusArr[i].currValue);
         } else {
-          statusString="STATUS: GOOD";
-          digitalWrite(ledIndicatorPin,LOW);          
+          statusStringA=snsrStatusArr[i].name+":"+snsrStatusArr[i].currValue;
         }
+        statusStringA=statusStringA+" "+snsrStatusArr[i].unitStauts;
+
+        if((snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshod) ) {
+            // Over Max
+		    statusStringA="!"+statusStringA;
+        } else if((snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshod)) {
+           // Under Min 
+		   statusStringA="!"+statusStringA;
+        } else {
+           // Nominal
+		   statusStringA=" "+statusStringA;		  
+        }
+
+	   	if(snsrStatusArr[i+1].isInt){
+          statusStringB=snsrStatusArr[i+1].name+":"+int(snsrStatusArr[i+1].currValue);
+        } else {
+          statusStringB=snsrStatusArr[i+1].name+":"+snsrStatusArr[i+1].currValue;
+        }
+        statusStringB=statusStringB+" "+snsrStatusArr[i+1].unitStauts;
+
+
+        if((snsrStatusArr[i+1].currValue  > snsrStatusArr[i+1].maxThreshod) ) {
+            // Over Max
+		    statusStringB="!"+statusStringB;
+        } else if((snsrStatusArr[i+1].currValue  < snsrStatusArr[i+1].minThreshod)) {
+           // Under Min 
+		   statusStringB="!"+statusStringB;
+        } else {
+           // Nominal
+		   statusStringB=" "+statusStringB;		  
+        }
+
         lcd.setCursor(0, 0);
         lcd.print("                ");   // This is done to 0 out the 2nd row
         lcd.setCursor(0, 0);        
-        lcd.print(statusString);
+        lcd.print(statusStringA);
         lcd.setCursor(0, 1);        
         lcd.print("                ");   // This is done to 0 out the 2nd row
         lcd.setCursor(0, 1);     
-        lcd.print(displayString);    
+        lcd.print(statusStringB); 
+
+
+
+   
         changeStatus  = false;	
-		currentMillis = millis();
+        currentMillis = millis();
         previousMillisWaitMenu=currentMillis;
         while(changeStatus==false){  
          currBTN = 1;
@@ -425,16 +470,15 @@ int displayStatus(){
 	 	 
          if(prvBTN!=currBTN){
           Serial.print("displayStatus: Button Pressed! "); 
-		      scrollMenu();
+          scrollMenu();
           break;			
-		     }
+		 }
          prvBTN=currBTN;
-    
-
-		}   
-    }
+        }   
+	}	
     return 1;
-}//displayStatus
+}
+//displayStatus
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -449,22 +493,17 @@ int scrollMenu(){
   // reset the watch dog timer to 0 when we enter the scroll menue
   // when the watch dog reaches the max we will go back to the status 
   // display function. 
-  //int wtchDogMenueScrollwtchDogMenueScroll = 0;
-
-  
-  //Detach the inteerupt from the joystick pin while we are in the menue 
-  //detachInterrupt(digitalPinToInterrupt(JStickButtonPin));    
     
 
-  int currMenu=0; 
-  int prevMenu=0; 
-  int nextMenu=0;  
-  bool menueChange = false; 
-  bool enterSubMenue = false;   
-  bool checkDir = false;
-  bool watchDogExp=false;
-  int currBTN = 1;
-  int prvBTN = 1;
+   int  currMenu=0; 
+   int  prevMenu=0; 
+   int  nextMenu=0;  
+   bool menueChange = false; 
+   bool enterSubMenue = false;   
+   bool checkDir = false;
+   bool watchDogExp=false;
+   int  currBTN = 1;
+   int  prvBTN = 1;
 
 
    currentMillis=millis();
@@ -522,7 +561,15 @@ int scrollMenu(){
     Serial.print("\n");  		
 */
 
-
+    //  LIGHT MAX     // 0
+    //  LIGHT MIN     // 1
+    //  Temp MAX      // 2
+    //  Temp MIN      // 3
+    //  MOISTURE MAX  // 4
+    //  MOISTURE MIN  // 4
+    //  HUMIDITY MAX  // 5
+    //  HUMIDITY MIN  // 6
+    //  RTN STATUS    // 7	
  
     if((yVal > JSTICK_UP) && checkDir) { // UP
       nextMenu=1;
@@ -536,22 +583,37 @@ int scrollMenu(){
       checkDir=false;
       Serial.print("DOWN\n"); 
 	  previousMillisCheckDir=millis();
-    }else if(prvBTN!=currBTN){   
-      Serial.print("scrollMenu: Button Pressed! "); 
-      //int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
-      limitThrsArray[prevMenu]=printSubConfigMenue(
-                               limitThrsArray[prevMenu],
-                               SENSOR_MAX_SETTING_ARRAY[prevMenu],
-                               0,
-                               menueArray[prevMenu]
-                              );    
-							  
-      // Go to the sub menue to configure the thresholds. 
-	  //int printMenue(int currMenu, int nextMenu) {
-	  printMenue(prevMenu,0); 
-	  enterMenu=false;
-      previousMillisWaitMenu=millis();	  
-    } 
+    }else if(prvBTN!=currBTN){
+      Serial.print("scrollMenu: Button Pressed! \n"); 
+      Serial.print("scrollMenu: "); 	  
+      Serial.print(" | prevMenu ");  		
+      Serial.print(prevMenu);	
+      Serial.print(" | currMenu ");  		
+      Serial.print(currMenu);			
+      Serial.print("\n"); 	 
+      while((prvBTN!=currBTN) && (currBTN !=1)){  
+        Serial.print("scrollMenu: DBOUNCE \n");    
+        currBTN=digitalRead(JStickButtonPin);  
+      }	 	  
+      if(prevMenu==MAX_MENU){	  
+		  break;
+      } else {		  
+        Serial.print("scrollMenu: Button Pressed! "); 
+        //int printSubConfigMenue(int setVal ,int maxVal, int minVal, String menueTitle){
+        limitThrsArray[prevMenu]=printSubConfigMenue(
+                                 limitThrsArray[prevMenu],
+                                 SENSOR_MAX_SETTING_ARRAY[prevMenu],
+                                 0,
+                                 menueArray[prevMenu]
+                                );    
+	  						  
+        // Go to the sub menue to configure the thresholds. 
+	    //int printMenue(int currMenu, int nextMenu) {
+	    printMenue(prevMenu,0); 
+	    enterMenu=false;
+        previousMillisWaitMenu=millis();	  
+      }
+    }	
 	
 	if(menueChange == true){
       prevMenu=currMenu;
@@ -560,8 +622,8 @@ int scrollMenu(){
 
     };
     prvBTN=currBTN;
-	
   }
+  return;
   // when we leave this function and go back to the status
   // display function we will reatach the interrutp
   //attachInterrupt(digitalPinToInterrupt(JStickButtonPin), scrollMenu, FALLING);  
