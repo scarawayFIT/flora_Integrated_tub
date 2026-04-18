@@ -83,6 +83,12 @@
 // pressing the bush button the user will be take back to the scroll menu 
 // in a different location than where was entered.  
 //
+// 4/17/2026 Version 1.3
+// 
+// fixed defect where when exiting a config menu by 
+// pressing the bush button the user will be taken back to the scroll menu 
+// in a different location than where it was entered.  
+//
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -639,7 +645,8 @@ int scrollMenu(){
 		  tmpSetVal=snsrStatusArr[tmpIdx].minThreshod;
 		}			
 
-	      Serial.print("currMenu: ");
+        #ifdef DEBUG_MODE
+          Serial.print("currMenu: ");
           Serial.print(" ");
 	      Serial.print(currMenu);		  
           Serial.print(" ");		  
@@ -694,7 +701,7 @@ int scrollMenu(){
           Serial.print("sensorMin: ");
           Serial.print(snsrStatusArr[tmpIdx].sensorMin);
           Serial.print("\n");
-	
+	    #endif
 	
         //int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){        
 		tmpSetVal=printSubConfigMen(tmpSetVal,
@@ -715,7 +722,7 @@ int scrollMenu(){
 	  						  
         // Go to the sub menue to configure the thresholds. 
 	    //int printMenue(int currMenu, int nextMenu) {
-	    printMenue(prevMenu,0); 
+	    printMenue(currMenu,0); 
         previousMillisWaitMenu=millis();	  
       }
     }	
