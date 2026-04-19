@@ -89,6 +89,11 @@
 // pressing the bush button the user will be taken back to the scroll menu 
 // in a different location than where it was entered.  
 //
+// 4/17/2026 Version 1.4
+//
+// Updated the status display to use a check mark next to status to represetn
+// the status is within spec and a bell to show when a status is out of spec
+//
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -166,6 +171,29 @@ public:
 //#define DEBUG_MODE
 
 DHT dht(DHTPIN, DHTTYPE);
+
+byte Bell[8] = {
+0b00100,
+0b01110,
+0b01110,
+0b01110,
+0b11111,
+0b00000,
+0b00100,
+0b00000
+};
+
+
+byte Check[8] = {
+0b00000,
+0b00001,
+0b00011,
+0b10110,
+0b11100,
+0b01000,
+0b00000,
+0b00000
+};
 
 
 int jStickXPin        = A0;
@@ -345,7 +373,9 @@ void setup() {
   
   snsrStatusArr[LIGHTSNSORIDX].name="Light";
   snsrStatusArr[LIGHTSNSORIDX].unitStauts="";
-
+  // create a new character
+  lcd.createChar(0, Check);
+  lcd.createChar(1, Bell);  
 }
 
 
@@ -393,7 +423,6 @@ int checkSensors(){
 
 
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Function Name : displayStatus
 // Inputs        : None
@@ -413,16 +442,22 @@ int displayStatus(){
 
     String name;
     String unitStauts;
+    String lowStatus;	
+    String highStatus;		
     bool   isInt;
     bool   changeStatus=false;	
 	bool   alrmStatus=false;
     float  currValue;
-    int currBTN = 0;
-    int prvBTN = 0;
+    float  maxThreshod;
+    float  minThreshod;	
+    int    currBTN = 0;
+    int    prvBTN = 0;
+	int    statusidxA=0;
+	int    statusidxB=0;	
 
-        // Loop through the sensor values
-	    // set alarm status if the sensor reading is
-	    // outside of the threshold
+    // Loop through the sensor values
+	  // set alarm status if the sensor reading is
+	  // outside of the threshold
         for (int i=0; i<4; i++) {       
           if(
 		     (snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshod) || 
@@ -431,6 +466,11 @@ int displayStatus(){
              alrmStatus = true;
           }
         }
+
+
+
+
+
 
          
 	    if(alrmStatus){
@@ -449,15 +489,17 @@ int displayStatus(){
 
         if((snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshod) ) {
             // Over Max
-		    statusStringA="!"+statusStringA;
-        } else if((snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshod)) {
+            statusidxA=1;			
+        } else if((snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshod)) {			
            // Under Min 
-		   statusStringA="!"+statusStringA;
+           statusidxA=1;
         } else {
            // Nominal
-		   statusStringA=" "+statusStringA;		  
+           statusidxA=0;
         }
 
+
+	
 	   	if(snsrStatusArr[i+1].isInt){
           statusStringB=snsrStatusArr[i+1].name+":"+int(snsrStatusArr[i+1].currValue);
         } else {
@@ -468,23 +510,42 @@ int displayStatus(){
 
         if((snsrStatusArr[i+1].currValue  > snsrStatusArr[i+1].maxThreshod) ) {
             // Over Max
-		    statusStringB="!"+statusStringB;
+           statusidxB=1;			
         } else if((snsrStatusArr[i+1].currValue  < snsrStatusArr[i+1].minThreshod)) {
            // Under Min 
-		   statusStringB="!"+statusStringB;
+           statusidxB=1;		   
         } else {
            // Nominal
-		   statusStringB=" "+statusStringB;		  
+           statusidxB=0;  
         }
+
+    //#ifdef DEBUG_MODE	  		
+      Serial.print("snsrStatusArr[i].currValue ");  
+      Serial.print(snsrStatusArr[i].currValue);
+      Serial.print(" | snsrStatusArr[i].maxThreshod ");  
+      Serial.print(snsrStatusArr[i].maxThreshod);  
+      Serial.print(" | snsrStatusArr[i].minThreshod ");  		
+      Serial.print(snsrStatusArr[i].minThreshod);        
+      Serial.print(statusidxA);  
+    
+      Serial.print("\n");  		
+    //#endif
+
 
         lcd.setCursor(0, 0);
         lcd.print("                ");   // This is done to 0 out the 2nd row
         lcd.setCursor(0, 0);        
-        lcd.print(statusStringA);
+        lcd.write(byte(statusidxA));
+        lcd.setCursor(1, 0);         
+        lcd.print(statusStringA);        
+		
         lcd.setCursor(0, 1);        
         lcd.print("                ");   // This is done to 0 out the 2nd row
         lcd.setCursor(0, 1);     
+        lcd.write(byte(statusidxB)); 
+        lcd.setCursor(1,1);         
         lcd.print(statusStringB); 
+
 
 
 
@@ -866,17 +927,17 @@ int localCurrMenu=currMenu;
 int arryNextIndex=0;
 
 
-
-    Serial.print("printMenue: currMenu ");  
-    Serial.print(currMenu);  
-    Serial.print(" | nextMenu ");  	
-    Serial.print(nextMenu);  
-    Serial.print(" | localCurrMenu ");  	
-    Serial.print(localCurrMenu);  
-    Serial.print(" | arryNextIndex ");  	
-    Serial.print(arryNextIndex);  	
-    Serial.print("\n");
-
+    #ifdef DEBUG_MODE
+      Serial.print("printMenue: currMenu ");  
+      Serial.print(currMenu);  
+      Serial.print(" | nextMenu ");  	
+      Serial.print(nextMenu);  
+      Serial.print(" | localCurrMenu ");  	
+      Serial.print(localCurrMenu);  
+      Serial.print(" | arryNextIndex ");  	
+      Serial.print(arryNextIndex);  	
+      Serial.print("\n");
+    #endif
 
     // Check if the menue scrolls up or down 
     // 1 = UP, 2 = DOWN
