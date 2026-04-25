@@ -94,6 +94,24 @@
 // Updated the status display to use a check mark next to status to represetn
 // the status is within spec and a bell to show when a status is out of spec
 //
+// 4/25/2026 Version 1.5
+//
+// Removed unused variables
+//
+// Added comments to class declarations of sensors to make it more clear what
+// each attribute does and is used for
+// updated default values in classes. 
+//
+// updated menu to use the left on the joystick as a way to return to 
+// previous menus. When in the sub configuration menu setting the max or min values
+// The user can now press left on the joystick to return to the 
+// scroll menu. When in the Scroll menu pressing left of the joystick will now 
+// return to the status menu
+//
+// Updated config menu to display the units of the sensors
+// Updated config menu to display the sensor value in either Float Or Integrated
+// Updated config menu to change floating point values by 0.1
+//
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -165,6 +183,7 @@ public:
 #define WTCH_DOG_CNFG_MENUE  3000
 #define JSTICK_UP            700
 #define JSTICK_DOWN          300
+#define JSTICK_LEFT          200
 #define MAX_MENU             8
 #define MIN_MENU             0
 
@@ -211,73 +230,61 @@ int buttonState;          // variable for storing joystick push button state
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
+unsigned long previousMillisCheckDir = 0;  
+unsigned long previousMillisWaitMenu = 0;    
+unsigned long currentMillis = millis();
 
-
-// These arrays will be used to store the max and Minum allowabel threshold levels
-// The sensor index is 
-//  LIGHT MAX     // 0 Defualt 1200
-//  LIGHT MIN     // 1 Default 
-//  TEMP MAX      // 2
-//  TEMP MIN      // 3
-//  MOISTURE MAX  // 4
-//  MOISTURE MIN  // 5
-//  HUMIDITY MAX  // 6
-//  HUMIDITY MIN  // 7
-const int SENSOR_MAX_SETTING_ARRAY[]={2000,0,10,0,200,0,10,0};
-int limitThrsArray[]={1000,500,10,10,100,10,0,0}; // Sets Defualts
-
-float hum;  //Stores  humidity value
-float temp; //Stores temperature value
-
-  unsigned long previousMillisCheckDir = 0;  
-  unsigned long previousMillisWaitMenu = 0;    
-  unsigned long currentMillis = millis();
-
+///////////////////////////////////////////////////////////////////////////////
 // Intialize the custom classes for the sensors data
+// Use these to configure the intial values of the sensors 
+//
+///////////////////////////////////////////////////////////////////////////////
+// Humidity Sensor 
 sensorStatusClass humidSnsrData(
-humidSnsrData.name="Humidity",
-humidSnsrData.unitStauts="%",
-humidSnsrData.isInt=false,
-humidSnsrData.currValue=0.0,
-humidSnsrData.maxThreshod=10.0,
-humidSnsrData.minThreshod=20.0,
-humidSnsrData.sensorMax=10.0,
-humidSnsrData.sensorMin=90.0	
+humidSnsrData.name="Humidity",  // String dipslayed in the staus menu
+humidSnsrData.unitStauts="%",   // Character to be displayed after the Status
+humidSnsrData.isInt=false,      // Used to interprit how the data should be displayed Is this an INT or a FLOAT
+humidSnsrData.currValue=0.0,    // Sets the current intial value
+humidSnsrData.maxThreshod=75.0, // Set the threshold max of the Humidity sensor
+humidSnsrData.minThreshod=30.0, // Set the threshold min of the Humidity sensor
+humidSnsrData.sensorMax=90.0,   // Set the limit the user can set the min threshold of the Humiditty Sensor
+humidSnsrData.sensorMin=10      // Set the limit the user can set the max threshold of the Humiditty Sensor	
 );
 
-
+// Temperature Sensor
 sensorStatusClass tempSnsrData(
-tempSnsrData.name="Temp",
-tempSnsrData.unitStauts="C",
-tempSnsrData.isInt=false,
-tempSnsrData.currValue=0.0,
-tempSnsrData.maxThreshod=27.7, // 82F
-tempSnsrData.minThreshod=7.2,  // 45F
-tempSnsrData.sensorMax=35,     // 95F
-tempSnsrData.sensorMin=0       // 32F 
+tempSnsrData.name="Temp",      
+tempSnsrData.unitStauts="C",   // Character to be displayed after the Status
+tempSnsrData.isInt=false,      // Used to interprit how the data should be displayed Is this an INT or a FLOAT
+tempSnsrData.currValue=0.0,    // Sets the current intial value
+tempSnsrData.maxThreshod=27.7, // 82F  | Set the threshold max of the Temperature sensor
+tempSnsrData.minThreshod=7.2,  // 45F  | Set the threshold min of the Temperature sensor
+tempSnsrData.sensorMax=38,     // 104F | Set the limit the user can set the min threshold of the Temperature Sensor
+tempSnsrData.sensorMin=0       // 32F  |Set the limit the user can set the max threshold of the Temperature Sensor	 
 );
 
-
+// Moisture Sensor
 sensorStatusClass moistureSnsrData(
-moistureSnsrData.name="Moisture",
-moistureSnsrData.unitStauts="",
-moistureSnsrData.isInt=true,
-moistureSnsrData.currValue=0,
-moistureSnsrData.maxThreshod=100,
-moistureSnsrData.minThreshod=10,
-moistureSnsrData.sensorMax=0,
-moistureSnsrData.sensorMin=1000	
+moistureSnsrData.name="Moisture", // String dipslayed in the staus menu
+moistureSnsrData.unitStauts="",   // Character to be displayed after the Status
+moistureSnsrData.isInt=true,      // Used to interprit how the data should be displayed Is this an INT or a FLOAT
+moistureSnsrData.currValue=0,     // Sets the current intial value
+moistureSnsrData.maxThreshod=100, // Set the threshold max of the Moisture sensor
+moistureSnsrData.minThreshod=10,  // Set the threshold min of the Moisture sensor
+moistureSnsrData.sensorMax=1000,  // Set the limit the user can set the min threshold of the Moisture Sensor
+moistureSnsrData.sensorMin=0	  // Set the limit the user can set the max threshold of the Moisture Sensor	
 );
 
+// Light Sensor
 sensorStatusClass lightSnsrData(
-lightSnsrData.name="Light Intesity",
-lightSnsrData.unitStauts="",
-lightSnsrData.isInt=true,
-lightSnsrData.currValue=0,
-lightSnsrData.maxThreshod=100,
-lightSnsrData.minThreshod=700,
-lightSnsrData.sensorMax=1000,
-lightSnsrData.sensorMin=0	
+lightSnsrData.name="Light Intesity", // String dipslayed in the staus menu
+lightSnsrData.unitStauts="",         // Character to be displayed after the Status
+lightSnsrData.isInt=true,            // Used to interprit how the data should be displayed Is this an INT or a FLOAT
+lightSnsrData.currValue=0,           // Sets the current intial value
+lightSnsrData.maxThreshod=100,       // Set the threshold max of the Light sensor
+lightSnsrData.minThreshod=700,       // Set the threshold min of the Light sensor
+lightSnsrData.sensorMax=1000,        // Set the limit the user can set the min threshold of the Light Sensor
+lightSnsrData.sensorMin=0	         // Set the limit the user can set the max threshold of the Light Sensor	
 );
 
 
@@ -296,7 +303,8 @@ lightSnsrData.sensorMin=0
 // ------------------------|-----------------|
 sensorStatusClass snsrStatusArr[]={lightSnsrData,tempSnsrData,moistureSnsrData,humidSnsrData};
 
-
+// This array is used to set the string that will be 
+// displaued in the scroll menu
 const String MENU_ARRAY[]= {
   "TEMP MAX",     // 0
   "TEMP MIN",     // 1
@@ -341,7 +349,7 @@ LIGHTSNSORIDX
 int displayStatus();
 int checkControls();
 int scrollMenu();
-int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle);
+int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle, bool isInt, String unitStauts );
 int printMenue(int currMenu, int nextMenu);
 
 
@@ -362,20 +370,25 @@ void setup() {
   Serial.begin(9600); // initialize the serial monitor
   digitalWrite(ledIndicatorPin,LOW);
  
+ 
+  // Strings were not saving from the initalization of these classes
+  // Moved them here and it seemed to work 
   snsrStatusArr[HUMIDNSORIDX].name="Humid";
   snsrStatusArr[HUMIDNSORIDX].unitStauts="%";
     
   snsrStatusArr[TEMPSNSORIDX].name="Temp";
   snsrStatusArr[TEMPSNSORIDX].unitStauts="C";
   
-  snsrStatusArr[MOISTURESNSORIDX].name="Mosit";
+  snsrStatusArr[MOISTURESNSORIDX].name="Moist";
   snsrStatusArr[MOISTURESNSORIDX].unitStauts="";
   
   snsrStatusArr[LIGHTSNSORIDX].name="Light";
   snsrStatusArr[LIGHTSNSORIDX].unitStauts="";
   // create a new character
-  lcd.createChar(0, Check);
-  lcd.createChar(1, Bell);  
+  // These are characters that will be used
+  // to comunicate status of the sensors 
+  lcd.createChar(0, Check); // GOOD
+  lcd.createChar(1, Bell);  // BAD
 }
 
 
@@ -440,10 +453,10 @@ int displayStatus(){
 
 
 
-    String name;
-    String unitStauts;
-    String lowStatus;	
-    String highStatus;		
+    //String name;
+    //String unitStauts;
+    //String lowStatus;	
+    //String highStatus;		
     bool   isInt;
     bool   changeStatus=false;	
 	bool   alrmStatus=false;
@@ -519,19 +532,18 @@ int displayStatus(){
            statusidxB=0;  
         }
 
-    //#ifdef DEBUG_MODE	  		
-      Serial.print("snsrStatusArr[i].currValue ");  
-      Serial.print(snsrStatusArr[i].currValue);
-      Serial.print(" | snsrStatusArr[i].maxThreshod ");  
-      Serial.print(snsrStatusArr[i].maxThreshod);  
-      Serial.print(" | snsrStatusArr[i].minThreshod ");  		
-      Serial.print(snsrStatusArr[i].minThreshod);        
-      Serial.print(statusidxA);  
-    
-      Serial.print("\n");  		
-    //#endif
-
-
+        #ifdef DEBUG_MODE	  		
+          Serial.print("snsrStatusArr[i].currValue ");  
+          Serial.print(snsrStatusArr[i].currValue);
+          Serial.print(" | snsrStatusArr[i].maxThreshod ");  
+          Serial.print(snsrStatusArr[i].maxThreshod);  
+          Serial.print(" | snsrStatusArr[i].minThreshod ");  		
+          Serial.print(snsrStatusArr[i].minThreshod);        
+          Serial.print(statusidxA);  
+        
+          Serial.print("\n");  		
+        #endif
+		
         lcd.setCursor(0, 0);
         lcd.print("                ");   // This is done to 0 out the 2nd row
         lcd.setCursor(0, 0);        
@@ -673,6 +685,14 @@ int scrollMenu(){
          Serial.print("scrollMenu: DOWN\n"); 
       #endif
 	  previousMillisCheckDir=millis();
+    } else if((xVal < JSTICK_LEFT) && (yVal < JSTICK_UP && yVal > JSTICK_DOWN) && checkDir) { // Left
+      menueChange=true;   
+      checkDir=false;	  
+      //#ifdef DEBUG_MODE	  		
+         Serial.print("scrollMenu: LEFT\n"); 
+         Serial.print("scrollMenu: return to status\n");   
+      //#endif
+      break;	  
     }else if(prvBTN!=currBTN){
        #ifdef DEBUG_MODE	  		
           Serial.print("scrollMenu: Button Pressed! \n"); 
@@ -768,7 +788,9 @@ int scrollMenu(){
 		tmpSetVal=printSubConfigMen(tmpSetVal,
                                       snsrStatusArr[tmpIdx].sensorMax,
                                       snsrStatusArr[tmpIdx].sensorMin,
-                                      MENU_ARRAY[currMenu]
+                                      MENU_ARRAY[currMenu],
+									  snsrStatusArr[tmpIdx].isInt,
+									  snsrStatusArr[tmpIdx].unitStauts
                                       );   
 
         // determine if this is a min or max threshold menu
@@ -802,22 +824,33 @@ int scrollMenu(){
 ///////////////////////////////////////////////////////////////////////////////
 // Function Name : printSubConfigMen
 //
-// Inputs        : int setVal
-//                 int maxVal
-//                 int minVal
-//                 String menueTitle
+// Inputs int    setVal     : The current value
+//        int    maxVal     : The max allowed value
+//        int    minVal     : The min allowed value
+//        String menueTitle : The string to be displayed
+//        bool   isInt      : determine if this is an int or a float
+//        string unitStauts : display chacter to show the units of the value
 //
-// Returns       : int setVal
+// Returns : int setVal : the new value to be set
 //
 // Description : 
 //               
 ///////////////////////////////////////////////////////////////////////////////
-int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){
-	
-    int  localWatchDog    =0;
-    bool exitMenu         = false;
-    int  currBTN          = 1;
-    int  prvBTN           = 1;	
+int printSubConfigMen(float setVal ,int maxVal, int minVal, 
+                      String menueTitle, bool isInt , String unitStauts){
+
+    int   localWatchDog =0;
+    bool  exitMenu      = false;
+	bool  checkDir      = false;
+    int   currBTN       = 1;
+    int   prvBTN        = 1;	
+	float incDecAmnt    = 1;
+    String valueString =""; 
+	if(isInt == true){
+      incDecAmnt = 1;
+	} else {
+      incDecAmnt = 0.1;
+	}
 
     #ifdef DEBUG_MODE     
       Serial.print("printSubConfigMen: menueTitle ");  
@@ -833,18 +866,23 @@ int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){
       Serial.print(maxVal);
       Serial.print("\n");     
     #endif;
-	
+    if(isInt == true){
+    	valueString=int(setVal)+unitStauts;
+    } else {
+    	valueString=setVal+unitStauts;
+    }	
 	
     lcd.clear();      
     lcd.begin(16, 2);
     lcd.setCursor(0, 0);
     lcd.print(menueTitle);
     lcd.setCursor(0, 1);
-    lcd.print(setVal);      
+    lcd.print(valueString);      	
 
 
     currentMillis = millis();
     previousMillisWaitMenu=currentMillis;
+    previousMillisCheckDir=currentMillis;	
      while(exitMenu==false){
         currBTN=digitalRead(JStickButtonPin);
         prvBTN=1;
@@ -853,9 +891,15 @@ int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){
           currBTN=digitalRead(JStickButtonPin);  
 		  exitMenu=true;
         }	 
-        prvBTN=currBTN;		
-        xVal             = analogRead(jStickXPin);
-        yVal             = analogRead(jStickYPin);
+
+        if (currentMillis - previousMillisCheckDir >= DIRECTION_INTERVAL) {
+          previousMillisCheckDir = currentMillis;  // Remember the time
+          checkDir = !checkDir;                    // Toggle
+        }
+		
+        prvBTN  =currBTN;		
+        xVal    = analogRead(jStickXPin);
+        yVal    = analogRead(jStickYPin);
 	
         if(yVal > JSTICK_UP) { // UP
           localWatchDog=0;
@@ -865,8 +909,14 @@ int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){
               Serial.print(setVal);
               Serial.print("\n"); 
             #endif;
-            setVal=setVal+1;
+            setVal=setVal+incDecAmnt;
             previousMillisWaitMenu= millis();  // Reset watch dog timer			
+			if(isInt == true){
+				valueString=int(setVal)+unitStauts;
+	        } else {
+				valueString=setVal+unitStauts;
+	        }
+
             lcd.setCursor(0, 0);
             lcd.print("                ");   // This is done to 0 out the 2nd row   
             lcd.setCursor(0, 0);
@@ -874,7 +924,7 @@ int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){
             lcd.setCursor(0, 1);
             lcd.print("                ");   // This is done to 0 out the 2nd row   
             lcd.setCursor(0, 1);      
-            lcd.print(setVal);						
+            lcd.print(valueString);      
           }
         } else if(yVal < JSTICK_DOWN) { // DOWN
           localWatchDog=0;        
@@ -884,8 +934,13 @@ int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){
               Serial.print(setVal);
               Serial.print("\n"); 
             #endif;
-            setVal=setVal-1;      
+            setVal=setVal-incDecAmnt;      
             previousMillisWaitMenu= millis(); // Reset watch dog timer			
+			if(isInt == true){
+				valueString=int(setVal)+unitStauts;
+	        } else {
+				valueString=setVal+unitStauts;
+	        }			
             lcd.setCursor(0, 0);
             lcd.print("                ");   // This is done to 0 out the 2nd row   
             lcd.setCursor(0, 0);
@@ -893,9 +948,17 @@ int printSubConfigMen(int setVal ,int maxVal, int minVal, String menueTitle){
             lcd.setCursor(0, 1);
             lcd.print("                ");   // This is done to 0 out the 2nd row   
             lcd.setCursor(0, 1);      
-            lcd.print(setVal);			
+            lcd.print(valueString);    				
           }
-        }
+        } else if((xVal < JSTICK_LEFT) && (yVal < JSTICK_UP && yVal > JSTICK_DOWN) && checkDir) { // Left
+          checkDir=false;	  
+	      previousMillisCheckDir=millis();			  
+          //#ifdef DEBUG_MODE	  		
+             Serial.print("printSubConfigMen: LEFT\n"); 
+             Serial.print("printSubConfigMen: return to status\n");   
+          //#endif
+		  exitMenu=true;
+		}  
 
         currentMillis = millis();		
          if (currentMillis - previousMillisWaitMenu >= WTCH_DOG_CNFG_MENUE) {
