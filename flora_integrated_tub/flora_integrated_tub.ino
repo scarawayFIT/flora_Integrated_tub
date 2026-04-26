@@ -112,6 +112,22 @@
 // Updated config menu to display the sensor value in either Float Or Integrated
 // Updated config menu to change floating point values by 0.1
 //
+//
+// 4/26/2026 Version 1.6
+//
+// Based on user testing updates were made to 
+//
+// Change the status menu updates to be 4 seconds 
+// this is 2x the original time of 2 seconds
+//
+// Added a new configuration menu to allow the user
+// the ability to set the status menu update time between status updates
+// this new menu option is called STATUS INTERVAL
+//
+// Fixed bug where while pressing the joystick button the menus would
+// sporadically change. This was occurring in the simulation and not the
+// the HW prototype. The change was to better de-bounce the button 
+// press and check that the status changes back to not pressed before moving on
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -129,8 +145,8 @@ public:
     String unitStauts;
     bool   isInt;
     float  currValue;
-    float  maxThreshod;
-    float  minThreshod;	
+    float  maxThreshold;
+    float  minThreshold;	
     float  sensorMax;
     float  sensorMin;	
 
@@ -142,8 +158,8 @@ public:
         String unitStauts,
         bool   isInt,   
         float  currValue,
-        float  maxThreshod,
-        float  minThreshod,
+        float  maxThreshold,
+        float  minThreshold,
         float  sensorMax,
         float  sensorMin) 
 		{
@@ -152,8 +168,8 @@ public:
        unitStauts    = unitStauts;
        isInt         = isInt;
        currValue     = currValue;
-       maxThreshod   = maxThreshod;
-       minThreshod   = minThreshod;
+       maxThreshold   = maxThreshold;
+       minThreshold   = minThreshold;
 	   sensorMax     = sensorMax;
 	   sensorMin     = sensorMin;
     }
@@ -168,23 +184,22 @@ public:
 #include <SoftwareSerial.h>
 #include <Wire.h>
 #include <DHT.h>
-
+#define NUMBER_SENSORS       4
+#define DEBOUNCE_CNT_MAX     10
 #define DHTPIN               10
-#define DHTTYPE DHT22
+#define DHTTYPE              DHT22
 #define LIGHTSNSORIDX        0
 #define TEMPSNSORIDX         1
 #define MOISTURESNSORIDX     2
 #define HUMIDNSORIDX         3
+#define STATUSINTERVALIDX    4
 #define DIRECTION_INTERVAL   250 
-#define STATUS_INTERVAL      2000
-#define DIRECTION_INTERVAL   250 
-#define STATUS_INTERVAL      2000
 #define WTCH_DOG_SCROLL_MENU 9000
-#define WTCH_DOG_CNFG_MENUE  3000
+#define WTCH_DOG_CNFG_MENUE  4200
 #define JSTICK_UP            700
 #define JSTICK_DOWN          300
 #define JSTICK_LEFT          200
-#define MAX_MENU             8
+#define MAX_MENU             9
 #define MIN_MENU             0
 
 //#define DEBUG_MODE
@@ -221,11 +236,11 @@ int pResistor         = A2;
 int moistureSensorPin = A3; 
 int ledIndicatorPin   = 13;
 int JStickButtonPin   = 6;
-
+int status_interval   = 4;
 int xVal;                 // variable for storing joystick x values
 int yVal;                 // variable for storing joystick y values
 int buttonState;          // variable for storing joystick push button state
-
+int debouncCnt=0;
 
 const int rs = 12, en = 11, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
@@ -241,38 +256,38 @@ unsigned long currentMillis = millis();
 ///////////////////////////////////////////////////////////////////////////////
 // Humidity Sensor 
 sensorStatusClass humidSnsrData(
-humidSnsrData.name="Humidity",  // String dipslayed in the staus menu
-humidSnsrData.unitStauts="%",   // Character to be displayed after the Status
-humidSnsrData.isInt=false,      // Used to interprit how the data should be displayed Is this an INT or a FLOAT
-humidSnsrData.currValue=0.0,    // Sets the current intial value
-humidSnsrData.maxThreshod=75.0, // Set the threshold max of the Humidity sensor
-humidSnsrData.minThreshod=30.0, // Set the threshold min of the Humidity sensor
-humidSnsrData.sensorMax=90.0,   // Set the limit the user can set the min threshold of the Humiditty Sensor
-humidSnsrData.sensorMin=10      // Set the limit the user can set the max threshold of the Humiditty Sensor	
+humidSnsrData.name="Humidity",   // String dipslayed in the staus menu
+humidSnsrData.unitStauts="%",    // Character to be displayed after the Status
+humidSnsrData.isInt=false,       // Used to interprit how the data should be displayed Is this an INT or a FLOAT
+humidSnsrData.currValue=0.0,     // Sets the current intial value
+humidSnsrData.maxThreshold=75.0, // Set the threshold max of the Humidity sensor
+humidSnsrData.minThreshold=30.0, // Set the threshold min of the Humidity sensor
+humidSnsrData.sensorMax=90.0,    // Set the limit the user can set the min threshold of the Humiditty Sensor
+humidSnsrData.sensorMin=10       // Set the limit the user can set the max threshold of the Humiditty Sensor	
 );
 
 // Temperature Sensor
 sensorStatusClass tempSnsrData(
 tempSnsrData.name="Temp",      
-tempSnsrData.unitStauts="C",   // Character to be displayed after the Status
-tempSnsrData.isInt=false,      // Used to interprit how the data should be displayed Is this an INT or a FLOAT
-tempSnsrData.currValue=0.0,    // Sets the current intial value
-tempSnsrData.maxThreshod=27.7, // 82F  | Set the threshold max of the Temperature sensor
-tempSnsrData.minThreshod=7.2,  // 45F  | Set the threshold min of the Temperature sensor
-tempSnsrData.sensorMax=38,     // 104F | Set the limit the user can set the min threshold of the Temperature Sensor
-tempSnsrData.sensorMin=0       // 32F  |Set the limit the user can set the max threshold of the Temperature Sensor	 
+tempSnsrData.unitStauts="C",    // Character to be displayed after the Status
+tempSnsrData.isInt=false,       // Used to interprit how the data should be displayed Is this an INT or a FLOAT
+tempSnsrData.currValue=0.0,     // Sets the current intial value
+tempSnsrData.maxThreshold=27.7, // 82F  | Set the threshold max of the Temperature sensor
+tempSnsrData.minThreshold=7.2,  // 45F  | Set the threshold min of the Temperature sensor
+tempSnsrData.sensorMax=38,      // 104F | Set the limit the user can set the min threshold of the Temperature Sensor
+tempSnsrData.sensorMin=0        // 32F  |Set the limit the user can set the max threshold of the Temperature Sensor	 
 );
 
 // Moisture Sensor
 sensorStatusClass moistureSnsrData(
-moistureSnsrData.name="Moisture", // String dipslayed in the staus menu
-moistureSnsrData.unitStauts="",   // Character to be displayed after the Status
-moistureSnsrData.isInt=true,      // Used to interprit how the data should be displayed Is this an INT or a FLOAT
-moistureSnsrData.currValue=0,     // Sets the current intial value
-moistureSnsrData.maxThreshod=100, // Set the threshold max of the Moisture sensor
-moistureSnsrData.minThreshod=10,  // Set the threshold min of the Moisture sensor
-moistureSnsrData.sensorMax=1000,  // Set the limit the user can set the min threshold of the Moisture Sensor
-moistureSnsrData.sensorMin=0	  // Set the limit the user can set the max threshold of the Moisture Sensor	
+moistureSnsrData.name="Moisture",  // String dipslayed in the staus menu
+moistureSnsrData.unitStauts="",    // Character to be displayed after the Status
+moistureSnsrData.isInt=true,       // Used to interprit how the data should be displayed Is this an INT or a FLOAT
+moistureSnsrData.currValue=0,      // Sets the current intial value
+moistureSnsrData.maxThreshold=100, // Set the threshold max of the Moisture sensor
+moistureSnsrData.minThreshold=10,  // Set the threshold min of the Moisture sensor
+moistureSnsrData.sensorMax=1000,   // Set the limit the user can set the min threshold of the Moisture Sensor
+moistureSnsrData.sensorMin=0	   // Set the limit the user can set the max threshold of the Moisture Sensor	
 );
 
 // Light Sensor
@@ -281,12 +296,26 @@ lightSnsrData.name="Light Intesity", // String dipslayed in the staus menu
 lightSnsrData.unitStauts="",         // Character to be displayed after the Status
 lightSnsrData.isInt=true,            // Used to interprit how the data should be displayed Is this an INT or a FLOAT
 lightSnsrData.currValue=0,           // Sets the current intial value
-lightSnsrData.maxThreshod=100,       // Set the threshold max of the Light sensor
-lightSnsrData.minThreshod=700,       // Set the threshold min of the Light sensor
+lightSnsrData.maxThreshold=100,      // Set the threshold max of the Light sensor
+lightSnsrData.minThreshold=700,      // Set the threshold min of the Light sensor
 lightSnsrData.sensorMax=1000,        // Set the limit the user can set the min threshold of the Light Sensor
 lightSnsrData.sensorMin=0	         // Set the limit the user can set the max threshold of the Light Sensor	
 );
 
+// Status Display Interval
+// This is not a sensor
+// We are going to reuse the snesor class to provide a way to set the status
+// menu interval update in seconds We will ise the maxThreshold
+sensorStatusClass statusInterval(                
+statusInterval.name="",                          
+statusInterval.unitStauts=" sec",                
+statusInterval.isInt=true,                       
+statusInterval.currValue=status_interval,        
+statusInterval.maxThreshold=status_interval,     
+statusInterval.minThreshold=1,                   
+statusInterval.sensorMax=30,                     
+statusInterval.sensorMin=1	                
+);
 
 //#define LIGHTSNSORIDX        0
 //#define TEMPSNSORIDX         1
@@ -301,20 +330,21 @@ lightSnsrData.sensorMin=0	         // Set the limit the user can set the max thr
 // | 2 | MOISTURESNSORIDX  | moisture snesor |
 // | 3 | HUMIDNSORIDX      | humidity sensor |
 // ------------------------|-----------------|
-sensorStatusClass snsrStatusArr[]={lightSnsrData,tempSnsrData,moistureSnsrData,humidSnsrData};
+sensorStatusClass snsrStatusArr[]={lightSnsrData,tempSnsrData,moistureSnsrData,humidSnsrData,statusInterval};
 
 // This array is used to set the string that will be 
 // displaued in the scroll menu
 const String MENU_ARRAY[]= {
-  "TEMP MAX",     // 0
-  "TEMP MIN",     // 1
-  "HUMIDITY MAX", // 2
-  "HUMIDITY MIN", // 3    
-  "MOISTURE MAX", // 4
-  "MOISTURE MIN", // 5
-  "LIGHT MAX",    // 6
-  "LIGHT MIN",    // 7
-  "RTN STATUS"    // 8
+  "TEMP MAX",        // 0
+  "TEMP MIN",        // 1
+  "HUMIDITY MAX",    // 2
+  "HUMIDITY MIN",    // 3    
+  "MOISTURE MAX",    // 4
+  "MOISTURE MIN",    // 5
+  "LIGHT MAX",       // 6
+  "LIGHT MIN",       // 7
+  "STATUS INTERVAL", // 8  
+  "RTN STATUS"       // 9
 };
 
 // |---------------------------------------|
@@ -328,7 +358,8 @@ const String MENU_ARRAY[]= {
 // | MOISTURE MIN  | 5 | MOISTURESNSORIDX  |
 // | HUMIDITY MAX  | 6 | HUMIDNSORIDX      |
 // | HUMIDITY MIN  | 7 | HUMIDNSORIDX      |
-// | RTN STATUS    | 8 | N/A               |
+// | STATUS IN     | 8 | STATUSINTERVALIDX |
+// | RTN STATUS    | 9 | N/A               |
 // |---------------------------------------|
 
 const int menuLookUpTable[]={
@@ -339,7 +370,8 @@ HUMIDNSORIDX,
 MOISTURESNSORIDX,
 MOISTURESNSORIDX,
 LIGHTSNSORIDX,
-LIGHTSNSORIDX
+LIGHTSNSORIDX,
+STATUSINTERVALIDX
 };
 
 
@@ -384,6 +416,9 @@ void setup() {
   
   snsrStatusArr[LIGHTSNSORIDX].name="Light";
   snsrStatusArr[LIGHTSNSORIDX].unitStauts="";
+
+  snsrStatusArr[STATUSINTERVALIDX].name="";  
+  snsrStatusArr[STATUSINTERVALIDX].unitStauts=" Seconds";  
   // create a new character
   // These are characters that will be used
   // to comunicate status of the sensors 
@@ -461,8 +496,8 @@ int displayStatus(){
     bool   changeStatus=false;	
 	bool   alrmStatus=false;
     float  currValue;
-    float  maxThreshod;
-    float  minThreshod;	
+    float  maxThreshold;
+    float  minThreshold;	
     int    currBTN = 0;
     int    prvBTN = 0;
 	int    statusidxA=0;
@@ -471,10 +506,10 @@ int displayStatus(){
     // Loop through the sensor values
 	  // set alarm status if the sensor reading is
 	  // outside of the threshold
-        for (int i=0; i<4; i++) {       
+        for (int i=0; i<NUMBER_SENSORS; i++) {       
           if(
-		     (snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshod) || 
-		     (snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshod)
+		     (snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshold) || 
+		     (snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshold)
 			 ) {
              alrmStatus = true;
           }
@@ -492,7 +527,7 @@ int displayStatus(){
            digitalWrite(ledIndicatorPin,LOW);      		 
         }
  
-      for (int i=0; i<4; i=i+2) {
+      for (int i=0; i<NUMBER_SENSORS; i=i+2) {
 	   	if(snsrStatusArr[i].isInt){
           statusStringA=snsrStatusArr[i].name+":"+int(snsrStatusArr[i].currValue);
         } else {
@@ -500,10 +535,10 @@ int displayStatus(){
         }
         statusStringA=statusStringA+" "+snsrStatusArr[i].unitStauts;
 
-        if((snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshod) ) {
+        if((snsrStatusArr[i].currValue  > snsrStatusArr[i].maxThreshold) ) {
             // Over Max
             statusidxA=1;			
-        } else if((snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshod)) {			
+        } else if((snsrStatusArr[i].currValue  < snsrStatusArr[i].minThreshold)) {			
            // Under Min 
            statusidxA=1;
         } else {
@@ -521,10 +556,10 @@ int displayStatus(){
         statusStringB=statusStringB+" "+snsrStatusArr[i+1].unitStauts;
 
 
-        if((snsrStatusArr[i+1].currValue  > snsrStatusArr[i+1].maxThreshod) ) {
+        if((snsrStatusArr[i+1].currValue  > snsrStatusArr[i+1].maxThreshold) ) {
             // Over Max
            statusidxB=1;			
-        } else if((snsrStatusArr[i+1].currValue  < snsrStatusArr[i+1].minThreshod)) {
+        } else if((snsrStatusArr[i+1].currValue  < snsrStatusArr[i+1].minThreshold)) {
            // Under Min 
            statusidxB=1;		   
         } else {
@@ -535,10 +570,10 @@ int displayStatus(){
         #ifdef DEBUG_MODE	  		
           Serial.print("snsrStatusArr[i].currValue ");  
           Serial.print(snsrStatusArr[i].currValue);
-          Serial.print(" | snsrStatusArr[i].maxThreshod ");  
-          Serial.print(snsrStatusArr[i].maxThreshod);  
-          Serial.print(" | snsrStatusArr[i].minThreshod ");  		
-          Serial.print(snsrStatusArr[i].minThreshod);        
+          Serial.print(" | snsrStatusArr[i].maxThreshold ");  
+          Serial.print(snsrStatusArr[i].maxThreshold);  
+          Serial.print(" | snsrStatusArr[i].minThreshold ");  		
+          Serial.print(snsrStatusArr[i].minThreshold);        
           Serial.print(statusidxA);  
         
           Serial.print("\n");  		
@@ -570,18 +605,37 @@ int displayStatus(){
          prvBTN = 1;
          currBTN=digitalRead(JStickButtonPin);
 		 currentMillis = millis();			
-         if (currentMillis - previousMillisWaitMenu >= STATUS_INTERVAL) {
+        // Digital debounce button press
+		prvBTN=1;
+        if(currBTN !=1){	   	
+     	   while(prvBTN!=currBTN){			   
+    	     prvBTN=currBTN; 
+             while(currBTN !=1){
+                Serial.print("displayStatus de bounce prvBTN");  
+                Serial.print(prvBTN);
+                Serial.print(" | currBTN ");  
+                Serial.print(currBTN);  
+                Serial.print("\n ");
+                currBTN=digitalRead(JStickButtonPin);  		  
+	   
+     	     } 
+     	     debouncCnt=0;
+             while(debouncCnt < DEBOUNCE_CNT_MAX){   	  
+               debouncCnt++;	  
+     	     }
+
+     	   }
+           scrollMenu();
+           break;				 		   
+          }
+
+         if (currentMillis - previousMillisWaitMenu >= (snsrStatusArr[STATUSINTERVALIDX].maxThreshold)*1000) {
            previousMillisWaitMenu = currentMillis;  // Remember the time         
            changeStatus = !changeStatus;            // Toggle        
-         }	
-	 	 
-         if(prvBTN!=currBTN){
-          Serial.print("displayStatus: Button Pressed! "); 
-          scrollMenu();
-          break;			
-		 }
-         prvBTN=currBTN;
-        }   
+         }		 
+		 
+         }   
+		
 	}	
     return 1;
 }
@@ -621,12 +675,27 @@ int scrollMenu(){
 
   currBTN=digitalRead(JStickButtonPin);
   prvBTN=1;
-  while((prvBTN!=currBTN) && (currBTN !=1)){  
-    #ifdef DEBUG_MODE	    
-	   Serial.print("scrollMenu: DBOUNCE \n");    
-    #endif	
-    currBTN=digitalRead(JStickButtonPin);  
-  }
+
+  debouncCnt=0;
+  if(currBTN !=1){
+	  while(prvBTN!=currBTN){
+	    while(currBTN !=1){
+          currBTN=digitalRead(JStickButtonPin); 
+          Serial.print("scrollMenu de bounce prvBTN");  
+          Serial.print(prvBTN);
+          Serial.print(" | currBTN ");  
+          Serial.print(currBTN);  
+          Serial.print("\n "); 		  
+	    } 
+	    debouncCnt=0;
+        while(debouncCnt < DEBOUNCE_CNT_MAX){   	  
+	    debouncCnt++;	  
+		
+	    }
+	    prvBTN=currBTN;
+        currBTN=digitalRead(JStickButtonPin);  	
+	  }
+    }
   while(watchDogExp==false){  
     currentMillis=millis();
     menueChange=false;	
@@ -644,7 +713,7 @@ int scrollMenu(){
   
     // read the x, y and joystick switch values
     xVal = analogRead(jStickXPin);
-    yVal = analogRead(jStickYPin);    
+    yVal = analogRead(jStickYPin);  	
     #ifdef DEBUG_MODE	  		
       Serial.print("scrollMenu: xVal ");  
       Serial.print(xVal);  
@@ -688,10 +757,10 @@ int scrollMenu(){
     } else if((xVal < JSTICK_LEFT) && (yVal < JSTICK_UP && yVal > JSTICK_DOWN) && checkDir) { // Left
       menueChange=true;   
       checkDir=false;	  
-      //#ifdef DEBUG_MODE	  		
+      #ifdef DEBUG_MODE	  		
          Serial.print("scrollMenu: LEFT\n"); 
          Serial.print("scrollMenu: return to status\n");   
-      //#endif
+      #endif
       break;	  
     }else if(prvBTN!=currBTN){
        #ifdef DEBUG_MODE	  		
@@ -704,10 +773,26 @@ int scrollMenu(){
           Serial.print("\n");
        #endif
 	  // Digital debounce button press
-      while((prvBTN!=currBTN) && (currBTN !=1)){  
-        Serial.print("scrollMenu: DBOUNCE \n");    
-        currBTN=digitalRead(JStickButtonPin);  
-      }	 
+
+  if(currBTN !=1){
+	  while(prvBTN!=currBTN){
+	    while(currBTN !=1){
+          currBTN=digitalRead(JStickButtonPin);  
+          Serial.print("scrollMenu de bounce prvBTN");  
+          Serial.print(prvBTN);
+          Serial.print(" | currBTN ");  
+          Serial.print(currBTN);  
+          Serial.print("\n "); 			  
+	    } 
+	    debouncCnt=0;
+        while(debouncCnt < DEBOUNCE_CNT_MAX){   	  
+	    debouncCnt++;	  
+			
+	    }
+	    prvBTN=currBTN;
+        currBTN=digitalRead(JStickButtonPin);  		
+	  }
+    }
 	  
       if(currMenu==MAX_MENU){	  
           #ifdef DEBUG_MODE	  
@@ -721,9 +806,9 @@ int scrollMenu(){
         // determine if this is a min or max threshold menu
         tmpIdx=menuLookUpTable[currMenu];
 		if((currMenu % 2)==0){
-		  tmpSetVal=snsrStatusArr[tmpIdx].maxThreshod;
+		  tmpSetVal=snsrStatusArr[tmpIdx].maxThreshold;
 		} else {
-		  tmpSetVal=snsrStatusArr[tmpIdx].minThreshod;
+		  tmpSetVal=snsrStatusArr[tmpIdx].minThreshold;
 		}			
 
         #ifdef DEBUG_MODE
@@ -770,11 +855,11 @@ int scrollMenu(){
           Serial.print("currValue: ");
           Serial.print(snsrStatusArr[tmpIdx].currValue);
           Serial.print(" | ");
-          Serial.print("maxThreshod: ");
-          Serial.print(snsrStatusArr[tmpIdx].maxThreshod);
+          Serial.print("maxThreshold: ");
+          Serial.print(snsrStatusArr[tmpIdx].maxThreshold);
           Serial.print(" | ");
-          Serial.print("minThreshod: ");
-          Serial.print(snsrStatusArr[tmpIdx].minThreshod);
+          Serial.print("minThreshold: ");
+          Serial.print(snsrStatusArr[tmpIdx].minThreshold);
           Serial.print(" | ");
           Serial.print("sensorMax: ");
           Serial.print(snsrStatusArr[tmpIdx].sensorMax);
@@ -796,9 +881,9 @@ int scrollMenu(){
         // determine if this is a min or max threshold menu
 		// then save the updated value to the apropiate class
 		if((currMenu % 2)==0){
-		  snsrStatusArr[tmpIdx].maxThreshod=tmpSetVal;
+		  snsrStatusArr[tmpIdx].maxThreshold=tmpSetVal;
 		} else {
-		  snsrStatusArr[tmpIdx].minThreshod=tmpSetVal;
+		  snsrStatusArr[tmpIdx].minThreshold=tmpSetVal;
 		}	
 
 
@@ -846,6 +931,31 @@ int printSubConfigMen(float setVal ,int maxVal, int minVal,
     int   prvBTN        = 1;	
 	float incDecAmnt    = 1;
     String valueString =""; 
+
+
+    currBTN=digitalRead(JStickButtonPin);
+    prvBTN=1;
+    // Digital debounce button press
+    if(currBTN !=1){
+ 	   while(prvBTN!=currBTN){
+ 	     while(currBTN !=1){
+            currBTN=digitalRead(JStickButtonPin);  	
+          Serial.print("printSubConfigMen de bounce prvBTN");  
+          Serial.print(prvBTN);
+          Serial.print(" | currBTN ");  
+          Serial.print(currBTN);  
+          Serial.print("\n "); 				
+ 	     } 
+ 	     debouncCnt=0;
+         while(debouncCnt < DEBOUNCE_CNT_MAX){   	  
+           debouncCnt++;	  
+ 	     }
+ 	     prvBTN=currBTN;
+         currBTN=digitalRead(JStickButtonPin);  
+ 	   }
+      }
+	
+	
 	if(isInt == true){
       incDecAmnt = 1;
 	} else {
@@ -887,11 +997,25 @@ int printSubConfigMen(float setVal ,int maxVal, int minVal,
         currBTN=digitalRead(JStickButtonPin);
         prvBTN=1;
 	    // Digital debounce button press
-        while((prvBTN!=currBTN) && (currBTN !=1)){  
-          currBTN=digitalRead(JStickButtonPin);  
-		  exitMenu=true;
-        }	 
-
+        if(currBTN !=1){
+		   exitMenu  = true;
+ 	       while(prvBTN!=currBTN){
+ 	         while(currBTN !=1){
+                currBTN=digitalRead(JStickButtonPin);  
+                Serial.print("printSubConfigMen de bounce prvBTN");  
+                Serial.print(prvBTN);
+                Serial.print(" | currBTN ");  
+                Serial.print(currBTN);  
+                Serial.print("\n "); 					
+ 	         } 
+ 	         debouncCnt=0;
+             while(debouncCnt < DEBOUNCE_CNT_MAX){   	  
+ 	           debouncCnt++;	  
+ 	         }
+ 	        prvBTN=currBTN;
+            currBTN=digitalRead(JStickButtonPin);  
+ 	       }
+          }
         if (currentMillis - previousMillisCheckDir >= DIRECTION_INTERVAL) {
           previousMillisCheckDir = currentMillis;  // Remember the time
           checkDir = !checkDir;                    // Toggle
@@ -900,7 +1024,6 @@ int printSubConfigMen(float setVal ,int maxVal, int minVal,
         prvBTN  =currBTN;		
         xVal    = analogRead(jStickXPin);
         yVal    = analogRead(jStickYPin);
-	
         if(yVal > JSTICK_UP) { // UP
           localWatchDog=0;
           if(setVal<maxVal){
