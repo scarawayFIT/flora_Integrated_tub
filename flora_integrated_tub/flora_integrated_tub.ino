@@ -128,6 +128,11 @@
 // sporadically change. This was occurring in the simulation and not the
 // the HW prototype. The change was to better de-bounce the button 
 // press and check that the status changes back to not pressed before moving on
+//
+// 5/1/2026 Version 1.6
+//
+// Update max and min thresholds of Light and Mositure sensor
+//
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -284,8 +289,8 @@ moistureSnsrData.name="Moisture",  // String dipslayed in the staus menu
 moistureSnsrData.unitStauts="",    // Character to be displayed after the Status
 moistureSnsrData.isInt=true,       // Used to interprit how the data should be displayed Is this an INT or a FLOAT
 moistureSnsrData.currValue=0,      // Sets the current intial value
-moistureSnsrData.maxThreshold=100, // Set the threshold max of the Moisture sensor
-moistureSnsrData.minThreshold=10,  // Set the threshold min of the Moisture sensor
+moistureSnsrData.maxThreshold=700, // Set the threshold max of the Moisture sensor
+moistureSnsrData.minThreshold=100,  // Set the threshold min of the Moisture sensor
 moistureSnsrData.sensorMax=1000,   // Set the limit the user can set the min threshold of the Moisture Sensor
 moistureSnsrData.sensorMin=0	   // Set the limit the user can set the max threshold of the Moisture Sensor	
 );
@@ -296,8 +301,8 @@ lightSnsrData.name="Light Intesity", // String dipslayed in the staus menu
 lightSnsrData.unitStauts="",         // Character to be displayed after the Status
 lightSnsrData.isInt=true,            // Used to interprit how the data should be displayed Is this an INT or a FLOAT
 lightSnsrData.currValue=0,           // Sets the current intial value
-lightSnsrData.maxThreshold=100,      // Set the threshold max of the Light sensor
-lightSnsrData.minThreshold=700,      // Set the threshold min of the Light sensor
+lightSnsrData.maxThreshold=700,      // Set the threshold max of the Light sensor
+lightSnsrData.minThreshold=100,      // Set the threshold min of the Light sensor
 lightSnsrData.sensorMax=1000,        // Set the limit the user can set the min threshold of the Light Sensor
 lightSnsrData.sensorMin=0	         // Set the limit the user can set the max threshold of the Light Sensor	
 );
