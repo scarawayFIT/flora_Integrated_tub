@@ -129,7 +129,7 @@
 // the HW prototype. The change was to better de-bounce the button 
 // press and check that the status changes back to not pressed before moving on
 //
-// 5/1/2026 Version 1.6
+// 5/1/2026 Version 1.7
 //
 // Update max and min thresholds of Light and Mositure sensor
 //
